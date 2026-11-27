@@ -76,10 +76,20 @@ aerei = [
 # Il Sopwith Triplane usa la stessa Tabella-Movimento del Fokker Dr.I (foglio AMS «Fokker Dr.1 / Sopwith Triplane»)
 PROVVISORI = {}
 # Disponibilita storica (mese 0 = gennaio 1917)
-DISP = {'albatros_d3': 0, 'nieuport17': 0, 'spad7': 0, 'triplane': 1, 'bristol': 3, 'se5a': 5, 'albatros_d5': 5,
+DISP = {'albatros_d3': -3, 'nieuport17': -8, 'spad7': -4, 'triplane': 1, 'bristol': 3, 'se5a': 5, 'albatros_d5': 5,
         'halberstadt': 6, 'camel': 7, 'spad13': 7, 'fokker_dr1': 7, 'pfalz_d3': 7, 'nieuport28': 15, 'fokker_d7': 15,
         'ssw_d3': 15, 'ssw_d4': 19, 'snipe': 20, 'pfalz_d12': 20}
 QUOTE = {'BB': 0, 'B': 1, 'M': 2, 'A': 3, 'MA': 4}
+MODELLI = {'snipe': 'camel', 'pfalz_d12': 'pfalz_d3', 'ssw_d4': 'ssw_d3'}
+# Aerei aggiuntivi dai fogli AMS revisionati delle Blue Max Miniature Rules (cartella ADD/BMMRP):
+# manovre e caratteristiche dai fogli; il carburante non c'è e si usa quello di aerei simili.
+CAMEL = [x for x in aerei if x[0] == 'camel'][0][11]
+for x in json.load(open(os.path.join(R, 'aggiuntivi_src.json'), encoding='utf-8')):
+    man = x['manovre'] if x['manovre'] else CAMEL
+    aerei.append((x['id'], x['nome'], x['nazioni'], x['st'], x['mot'], x['ali'], x['fus'], x['coda'], x['carb'], x['arm'], x['q'], man))
+    DISP[x['id']] = x['disp']
+    MODELLI[x['id']] = x['modello']
+AGGIUNTIVI = set(json.load(open(os.path.join(R, 'aggiuntivi_src.json'), encoding='utf-8'))[i]['id'] for i in range(len(json.load(open(os.path.join(R, 'aggiuntivi_src.json'), encoding='utf-8')))))
 out = []
 for (i, n, naz, st, mot, ali, fus, coda, carb, arm, q, man) in aerei:
     quota = QUOTE[q.rstrip('+')]
@@ -96,7 +106,8 @@ for (i, n, naz, st, mot, ali, fus, coda, carb, arm, q, man) in aerei:
                 'caricatori_lewis': 8 if i == 'bristol' else 4,
                 'quota_max': quota, 'quota_piu': q.endswith('+'), 'manovre': man,
                 'velocita_max': max(int(c[-1]) for c in man), 'disponibile_dal': DISP[i],
-                'provvisorio': PROVVISORI.get(i, '')})
+                'provvisorio': PROVVISORI.get(i, ''), 'modello': MODELLI.get(i, i),
+                'aggiuntivo': i in AGGIUNTIVI})
 
 # Pedine-danno: 36 rosse e 36 blu (trascritte dalle foto). Tipi: ala, fusoliera, coda, motore + effetti speciali.
 def D(**k): return k

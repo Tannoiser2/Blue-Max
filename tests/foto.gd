@@ -18,6 +18,9 @@ func _ready() -> void:
 			m.menu.scenari()
 			await get_tree().create_timer(0.8).timeout
 			await foto("scenari")
+			m.menu.generatore()
+			await get_tree().create_timer(0.8).timeout
+			await foto("generatore")
 			m.menu.crediti()
 			await get_tree().create_timer(0.5).timeout
 			await foto("crediti")
@@ -62,9 +65,18 @@ func _ready() -> void:
 				t += 1
 				for c in g.get_children():
 					if c is FinestraCombattimento:
-						await get_tree().create_timer(1.3).timeout
+						await get_tree().create_timer(0.9).timeout
 						await foto("striscia%d" % n)
 						n += 1
+		"nuvole":
+			var R = Scenari.costruisci("circo", {"G": "ia", "A": "umano"}, {"seme": 3, "nuvole": 16})
+			m.avvia_partita(R, {})
+			await get_tree().create_timer(3.0).timeout
+			await foto("nuvole1")
+			m.gioco.mondo.pitch_dest = 25.0
+			m.gioco.mondo.dist_dest = 16.0
+			await get_tree().create_timer(2.0).timeout
+			await foto("nuvole2")
 		"prue":
 			var lista = []
 			for i in 6:
@@ -104,17 +116,18 @@ func _ready() -> void:
 			await get_tree().create_timer(1.5).timeout
 			await foto("danni2")
 		"replay":
-			var R = Scenari.costruisci("americani", {"G": "ia", "A": "ia"}, {"seme": 8})
+			var R = Scenari.costruisci("immelmann", {"G": "ia", "A": "ia"}, {"seme": 4})
 			m.avvia_partita(R, {"veloce": true})
 			var g: Gioco = m.gioco
 			var t = 0
-			while not R.S["finita"] and t < 3000:
+			while not R.S["finita"] and t < 3000 and g.storia.size() < 3:
 				await get_tree().create_timer(0.2).timeout
 				t += 1
 			await get_tree().create_timer(1.0).timeout
 			print("finita ", R.S["finita"], " turni ", g.storia.size())
 			for c in g.modale.get_children():
 				c.visible = false
+			g.set_process(false)
 			g.replay()
 			for k in 6:
 				await get_tree().create_timer(1.7).timeout

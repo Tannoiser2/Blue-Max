@@ -266,7 +266,7 @@ func evidenzia(celle: Array, colore: Color, pulisci := false) -> void:
 
 # --------------------------------------------------------------------------- aerei
 func _modello(tipo: String) -> Node3D:
-	var nome: String = MODELLI.get(tipo, tipo)
+	var nome: String = Dati.aerei.get(tipo, {}).get("modello", tipo)
 	var p = "res://assets/modelli/%s.glb" % nome
 	var sc = load(p)
 	if sc == null:
@@ -278,7 +278,59 @@ func _modello(tipo: String) -> Node3D:
 	var n: Node3D = sc.instantiate()
 	return n
 
+var nodo_nuvole: Node3D
+const SHADER_NUVOLA := """
+shader_type spatial;
+render_mode unshaded, depth_draw_never, cull_back;
+uniform vec4 colore : source_color = vec4(1.0, 0.99, 0.97, 1.0);
+uniform float densita = 0.55;
+varying vec3 n_vista;
+void vertex() { n_vista = normalize((MODELVIEW_MATRIX * vec4(NORMAL, 0.0)).xyz); }
+void fragment() {
+	// bordi sfumati: più trasparente dove la superficie è di taglio
+	float f = clamp(dot(normalize(n_vista), vec3(0.0, 0.0, 1.0)), 0.0, 1.0);
+	float a = pow(f, 1.6) * densita;
+	float luce = 0.82 + 0.18 * n_vista.y;
+	ALBEDO = colore.rgb * luce;
+	ALPHA = a;
+}
+"""
+
+## Le nuvole della partita (regola della casa): grappoli di sfere morbide alla quota della nuvola
+func crea_nuvole() -> void:
+	if nodo_nuvole:
+		nodo_nuvole.queue_free()
+	nodo_nuvole = Node3D.new()
+	add_child(nodo_nuvole)
+	if R == null:
+		return
+	var sh := Shader.new()
+	sh.code = SHADER_NUVOLA
+	var rn := RandomNumberGenerator.new()
+	rn.seed = 4242
+	for nv in R.S.get("nuvole", []):
+		var mat := ShaderMaterial.new()
+		mat.shader = sh
+		mat.set_shader_parameter("densita", 0.8)
+		var h := altezza(int(nv["quota"]))
+		for c in nv["celle"]:
+			var base := mondo_da_cella(Vector2i(int(c[0]), int(c[1])))
+			for k in 6:
+				var sf := MeshInstance3D.new()
+				var sm := SphereMesh.new()
+				var r := rn.randf_range(0.45, 0.8)
+				sm.radius = r
+				sm.height = r * 1.3
+				sm.radial_segments = 16
+				sm.rings = 8
+				sf.mesh = sm
+				sf.material_override = mat
+				sf.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				sf.position = base + Vector3(rn.randf_range(-0.55, 0.55), h + rn.randf_range(-0.18, 0.15), rn.randf_range(-0.55, 0.55))
+				nodo_nuvole.add_child(sf)
+
 func crea_aerei() -> void:
+	crea_nuvole()
 	for k in nodi:
 		for parte in ["radice", "colonna", "anello"]:
 			nodi[k][parte].queue_free()
@@ -426,7 +478,7 @@ func posizione_aereo(id: int) -> Vector3:
 
 # --------------------------------------------------------------------------- animazioni del movimento
 ## Muove un aereo lungo il percorso della manovra (passi esagono per esagono)
-func anima_manovra(a: Dictionary, ev: Dictionary, durata := 1.8) -> void:
+func anima_manovra(a: Dictionary, ev: Dictionary, durata := 1.8, lineare := false) -> void:
 	var n: Dictionary = nodi.get(a["id"], {})
 	if n.is_empty():
 		return
@@ -468,7 +520,7 @@ func anima_manovra(a: Dictionary, ev: Dictionary, durata := 1.8) -> void:
 	var esito: String = ev.get("esito", "")
 	var tw = create_tween()
 	var fun = func(t: float):
-		var e = t * t * (3.0 - 2.0 * t)
+		var e = t if lineare else t * t * (3.0 - 2.0 * t)
 		var L = curva.get_baked_length()
 		var pos = curva.sample_baked(e * L) if L > 0.01 else dedup[0]
 		var h = lerpf(h0, h1, e)
@@ -494,6 +546,8 @@ func anima_manovra(a: Dictionary, ev: Dictionary, durata := 1.8) -> void:
 			rollio = 0.5
 		var dq = h1 - h0
 		becc += -atan(dq * 1.2) * sin(PI * e)
+		if not is_instance_valid(rad):
+			return
 		rad.position = pos + Vector3(0, h, 0)
 		rad.rotation = Vector3(0, giro, 0)
 		asse.rotation = Vector3(becc, 0, rollio)
@@ -502,8 +556,7 @@ func anima_manovra(a: Dictionary, ev: Dictionary, durata := 1.8) -> void:
 		col.scale = Vector3(1, h, 1)
 	tw.tween_method(fun, 0.0, 1.0, durata)
 	n["anello"].visible = false
-	if absf(dy) > 0.6 or num >= 27 or h0 != h1:
-		Suoni.suona("vento", -3.0, randf_range(0.85, 1.15))
+	Suoni.motore(cod, h1 - h0)
 	await tw.finished
 	animazioni -= 1
 
@@ -817,7 +870,7 @@ func _aggiorna_etichette() -> void:
 				vis = false
 			else:
 				var sp = cam.unproject_position(wp)
-				l.text = "%s  %s" % [_breve(a), Dati.QUOTE_BREVI[int(a["quota"])]]
+				l.text = "%s  %s%s" % [_breve(a), Dati.QUOTE_BREVI[int(a["quota"])], "  in nuvola" if R.in_nuvola(a) else ""]
 				l.position = sp - Vector2(l.size.x / 2, l.size.y + 4)
 				l.add_theme_color_override("font_color", Tema.colore_lato(a["lato"]).lightened(0.55))
 		l.visible = vis

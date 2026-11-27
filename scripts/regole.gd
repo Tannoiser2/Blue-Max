@@ -45,6 +45,33 @@ func avvia() -> void:
 	rng.seed = int(S["seme"])
 	S["rng"] = rng.state
 	_prepara_pedine()
+	_genera_nuvole(int(S["opzioni"].get("nuvole", 0)))
+
+## Regola della casa delle nuvole: banchi di 1-4 esagoni a una quota. Chi sta dentro una nuvola
+## è difficile da colpire (-2 al tiro contro di lui, -1 se spara da dentro) e non può essere tallonato.
+func _genera_nuvole(n: int) -> void:
+	var out = []
+	var lista = celle.keys()
+	for i in n:
+		var c: Vector2i = lista[rng.randi_range(0, lista.size() - 1)]
+		var banco = [[c.x, c.y]]
+		var dim = rng.randi_range(1, 4)
+		var cur = c
+		for k in dim - 1:
+			cur = Hex.vicino(cur, rng.randi_range(0, 5))
+			if celle.has(cur) and not banco.has([cur.x, cur.y]):
+				banco.append([cur.x, cur.y])
+		out.append({"quota": rng.randi_range(1, 4), "celle": banco})
+	S["nuvole"] = out
+	_salva_rng()
+
+func in_nuvola(a: Dictionary) -> bool:
+	for nv in S.get("nuvole", []):
+		if int(nv["quota"]) == int(a["quota"]):
+			for c in nv["celle"]:
+				if int(c[0]) == int(a["q"]) and int(c[1]) == int(a["r"]):
+					return true
+	return false
 
 func _salva_rng() -> void:
 	S["rng"] = rng.state
@@ -179,6 +206,8 @@ func calcola_tallonamenti() -> Dictionary:
 	return out
 
 func puo_tallonare(a: Dictionary, b: Dictionary) -> bool:
+	if in_nuvola(b):
+		return false
 	if absi(int(a["quota"]) - int(b["quota"])) > 1:
 		return false
 	if b["lato"] != a["lato"]:
@@ -280,7 +309,7 @@ func manovre_possibili(a: Dictionary) -> Array:
 			if planata and int(a["quota"]) > 0 and dq != -1:
 				continue
 			if dq == 1:
-				if g["acrobatica"] or vel < 2 or planata or vel >= int(t["velocita_max"]):
+				if g["acrobatica"] or vel < 2 or planata or (vel >= int(t["velocita_max"]) and int(t["velocita_max"]) > 2):
 					continue
 				if int(a["quota"]) >= quota_max(a) and not (tipo(a)["quota_piu"] and int(a["quota"]) < 4):
 					continue
@@ -611,6 +640,12 @@ func valore_fuoco(a: Dictionary, b: Dictionary, arma: String, raffica: String) -
 			mod.append(["Quota diversa", xq])
 	elif int(b["quota"]) < int(a["quota"]):
 		v += agg.call("Bersaglio più in basso", "inferiore")
+	if in_nuvola(b):
+		v -= 2
+		mod.append(["Bersaglio nella nuvola", -2])
+	if in_nuvola(a):
+		v -= 1
+		mod.append(["Spara da dentro la nuvola", -1])
 	if S["opzioni"].get("tiro_vite", false) and b["stato"] == "vite":
 		v -= 2
 		mod.append(["Bersaglio in avvitamento", -2])

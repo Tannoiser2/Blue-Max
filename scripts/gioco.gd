@@ -483,7 +483,6 @@ func turno() -> void:
 	var evm = R.fase_movimento()
 	anim_seq += 1
 	ultimo_anim = {"seq": anim_seq, "mov": evm}
-	Suoni.suona("motore", -6.0)
 	turno_corrente["mov"] = evm
 	for ev in evm:
 		mondo.anima_manovra(R.aereo(ev["id"]), ev, 1.9 if not veloce else 1.0)
@@ -977,6 +976,7 @@ func _anima_turno(R0: Regole, t: Dictionary, durata := 1.2) -> void:
 	for id in t.get("danni", []):
 		await mondo.esplosione(int(id))
 
+## Replay continuo: i turni si susseguono senza pause, gli spari e le esplosioni partono durante il volo
 func replay() -> void:
 	if storia.is_empty():
 		return
@@ -985,27 +985,52 @@ func replay() -> void:
 	var vero = R
 	sinistra.visible = false
 	destra.visible = false
+	var primo = Regole.new(JSON.parse_string(JSON.stringify(storia[0]["inizio"])))
+	R = primo
+	mondo.R = primo
+	mondo.pulisci_effetti()
+	mondo.crea_aerei()
+	_centra_inizio()
 	annuncia("Replay del combattimento", 2.0)
+	await get_tree().create_timer(0.6).timeout
+	const DUR = 1.4
 	for t in storia:
 		var finto = Regole.new(JSON.parse_string(JSON.stringify(t["inizio"])))
 		R = finto
 		mondo.R = finto
-		mondo.pulisci_effetti()
-		mondo.crea_aerei()
 		lbl_turno.text = "Replay - turno %d" % int(finto.S["turno"])
-		if t == storia[0]:
-			_centra_inizio()
-		else:
-			var s = Vector3.ZERO
-			var n = 0
-			for a in finto.attivi():
-				s += mondo.mondo_da_cella(finto.pos(a))
-				n += 1
-			if n > 0:
-				mondo.centra_su(s / n)
-		await get_tree().create_timer(0.2).timeout
-		await _anima_turno(finto, t)
-		await get_tree().create_timer(0.4).timeout
+		# la telecamera segue il gruppo con calma
+		var c = Vector3.ZERO
+		var n = 0
+		for a in finto.attivi():
+			c += mondo.mondo_da_cella(finto.pos(a))
+			n += 1
+		if n > 0:
+			mondo.centra_su(c / n)
+		for ev in t.get("mov", []):
+			var a = finto.aereo(int(ev["id"]))
+			if finto.in_gioco(a):
+				mondo.anima_manovra(a, ev, DUR, true)
+		await get_tree().create_timer(DUR * 0.55).timeout
+		for f in t.get("fuoco", []):
+			mondo.spara(int(f["da"]), int(f["a"]), f["arma"], f["raffica"], f["colpito"])
+		await mondo.aspetta_animazioni()
+		for ev in t.get("mov", []):
+			var a = finto.aereo(int(ev["id"]))
+			var f: Dictionary = ev["percorso"][-1]
+			a["q"] = int(f["q"])
+			a["r"] = int(f["r"])
+			a["prua"] = int(f["prua"])
+			a["quota"] = int(ev["quota_a"])
+			if ev["esito"] == "fuga":
+				a["stato"] = "fuggito"
+				mondo.aggiorna(a)
+		for id in t.get("danni", []):
+			var nd: Dictionary = mondo.nodi.get(int(id), {})
+			if not nd.is_empty():
+				nd["stato"] = "abbattuto"
+				mondo.esplosione(int(id))
+	await get_tree().create_timer(2.5).timeout
 	R = vero
 	mondo.R = vero
 	mondo.pulisci_effetti()
@@ -1058,6 +1083,16 @@ func _menu() -> void:
 	cv.button_pressed = veloce
 	cv.toggled.connect(func(x): veloce = x)
 	v.add_child(cv)
+	var cm = CheckBox.new()
+	cm.text = "Rumore del motore in sottofondo"
+	cm.button_pressed = Suoni.motore_attivo
+	cm.toggled.connect(func(x): Suoni.imposta_motore(x))
+	v.add_child(cm)
+	var cs = CheckBox.new()
+	cs.text = "Effetti sonori (spari, esplosioni, dado)"
+	cs.button_pressed = not Suoni.muto
+	cs.toggled.connect(func(x): Suoni.imposta_effetti(x))
+	v.add_child(cs)
 	var cd = CheckBox.new()
 	cd.text = "Mostra i danni dei nemici (niente segretezza)"
 	cd.button_pressed = R.S["opzioni"].get("danni_visibili", false)

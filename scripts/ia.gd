@@ -104,7 +104,10 @@ func valuta(a: Dictionary, me: Dictionary, b: Dictionary, lui: Dictionary) -> fl
 			s += 2.5
 		if Hex.in_arco_frontale(lui["p"], lui["prua"], me["p"], 3):
 			s -= 2.0
-	# distanza: si cerca il nemico, ma senza stargli davanti al muso
+	# nuvole: chi ci entra è difficile da colpire; utile soprattutto quando le cose vanno male
+	if _in_nuvola_pos(me):
+		s += 2.0 + (4.0 if _salute(a) < 0.5 else 0.0)
+		# distanza: si cerca il nemico, ma senza stargli davanti al muso
 	s -= absf(d - 2.0) * 0.6
 	# quota: meglio stare alla sua quota o una sopra
 	var dq: int = me["quota"] - lui["quota"]
@@ -198,6 +201,14 @@ func scegli_manovra(a: Dictionary, info: Dictionary = {}) -> Dictionary:
 			best = s
 			migliore = m
 	return migliore
+
+func _in_nuvola_pos(x: Dictionary) -> bool:
+	for nv in R.S.get("nuvole", []):
+		if int(nv["quota"]) == int(x["quota"]):
+			for c in nv["celle"]:
+				if Vector2i(int(c[0]), int(c[1])) == x["p"]:
+					return true
+	return false
 
 func _vicinanza_bordo(p: Vector2i) -> float:
 	var d = 99.0

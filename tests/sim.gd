@@ -6,8 +6,19 @@ func _ready() -> void:
 	var n = int(OS.get_environment("PARTITE")) if OS.get_environment("PARTITE") != "" else 20
 	for k in n:
 		var R: Regole
-		var sc: String = ["guynemer", "americani", "hawker", "meute", "udet", "libera"][k % 6]
-		if sc == "libera":
+		var elenco = ["guynemer", "americani", "hawker", "meute", "udet", "libera", "generato"]
+		for d in Scenari.STORICI:
+			elenco.append(d["id"])
+		var sc: String = elenco[k % elenco.size()]
+		if sc == "generato":
+			var rn = RandomNumberGenerator.new()
+			rn.seed = k
+			var gsit = Scenari.SITUAZIONI.keys()[k % 5]
+			var gg = Scenari.genera(-12 + (k * 7) % 35, 1 + k % 4, 1 + (k + 1) % 4, gsit, rn)
+			for x in gg["aerei"]:
+				x["controllo"] = "ia"
+			R = Scenari.schermaglia(gg["aerei"], {"seme": k, "nuvole": 12}, gg["vicino"])
+		elif sc == "libera":
 			var lista = []
 			for i in 3:
 				lista.append({"tipo": ["fokker_d7", "albatros_d5", "fokker_dr1", "pfalz_d12"][i % 4], "nazione": "germania", "controllo": "ia", "pilota": {"nome": "G%d" % i}})

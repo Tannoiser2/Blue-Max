@@ -100,7 +100,7 @@ func imposta(a: Dictionary, segreto: bool) -> void:
 		tipo = a["tipo"]
 		if modello:
 			modello.queue_free()
-		var sc = load("res://assets/modelli/%s.glb" % MODELLI.get(tipo, tipo))
+		var sc = load("res://assets/modelli/%s.glb" % Dati.aerei.get(tipo, {}).get("modello", tipo))
 		modello = sc.instantiate() if sc else Node3D.new()
 		radice.add_child(modello)
 		_prepara_vertici(tipo, modello)

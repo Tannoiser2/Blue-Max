@@ -117,7 +117,7 @@ func _nuovo_pilota(n: String) -> Dictionary:
 func _aerei_disponibili() -> Array:
 	var mese: int = C["mese"]
 	var naz: String = C["nazione"]
-	var l = Dati.ordine_aerei.filter(func(t): return naz in Dati.aerei[t]["nazioni"] and int(Dati.aerei[t]["disponibile_dal"]) <= mese and t != "halberstadt" and t != "bristol")
+	var l = Dati.ordine_aerei.filter(func(t): return naz in Dati.aerei[t]["nazioni"] and int(Dati.aerei[t]["disponibile_dal"]) <= mese and int(Dati.aerei[t]["osservatore"]) == 0)
 	if naz == "usa" and l.is_empty():
 		l = ["nieuport17", "spad7"]
 	l.sort_custom(func(a, b): return int(Dati.aerei[a]["disponibile_dal"]) > int(Dati.aerei[b]["disponibile_dal"]))

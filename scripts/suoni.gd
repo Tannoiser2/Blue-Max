@@ -7,8 +7,14 @@ var banca := {}
 var lettori := []
 var volume_db := -4.0
 var muto := false
+var motore_attivo := true
+const VOLUME_MOTORE := -20.0
 
 func _ready() -> void:
+	var c := ConfigFile.new()
+	if c.load("user://suoni.cfg") == OK:
+		motore_attivo = c.get_value("suoni", "motore", true)
+		muto = not c.get_value("suoni", "effetti", true)
 	for i in 8:
 		var p := AudioStreamPlayer.new()
 		p.bus = "Master"
@@ -16,8 +22,43 @@ func _ready() -> void:
 		lettori.append(p)
 	_crea()
 
+func _salva() -> void:
+	var c := ConfigFile.new()
+	c.set_value("suoni", "motore", motore_attivo)
+	c.set_value("suoni", "effetti", not muto)
+	c.save("user://suoni.cfg")
+
+func imposta_motore(x: bool) -> void:
+	motore_attivo = x
+	_salva()
+
+func imposta_effetti(x: bool) -> void:
+	muto = not x
+	_salva()
+
+## Il motore in sottofondo durante il movimento: più acuto con la velocità, sale di giri in cabrata,
+## cala in picchiata e nelle acrobazie fa un «ululato»; si toglie dal menu.
+func motore(codice: String, dq: float) -> void:
+	if not motore_attivo or codice == "":
+		return
+	var k := Dati.codice(codice)
+	var nome := "motore"
+	if int(k["n"]) >= 27:
+		nome = "motore_acro"
+	elif dq > 0.01:
+		nome = "motore_su"
+	elif dq < -0.01:
+		nome = "motore_giu"
+	var tono := 0.75 + 0.12 * float(k["vel"])
+	_play(nome, VOLUME_MOTORE, tono)
+
 func suona(n: String, vol := 0.0, tono := 1.0) -> void:
-	if muto or not banca.has(n):
+	if muto:
+		return
+	_play(n, vol, tono)
+
+func _play(n: String, vol: float, tono: float) -> void:
+	if not banca.has(n):
 		return
 	var libero: AudioStreamPlayer = null
 	for p in lettori:
@@ -77,6 +118,20 @@ func _crea() -> void:
 		var env := minf(1.0, t * 4.0) * minf(1.0, (1.6 - t) * 3.0)
 		m[i] = saw * batt * env * 0.35
 	banca["motore"] = _wav(m)
+	for v in [["motore_su", 0.35], ["motore_giu", -0.3], ["motore_acro", 0.0]]:
+		var mm := PackedFloat32Array()
+		mm.resize(int(RATE * 1.6))
+		var fs := 0.0
+		for i in mm.size():
+			var t := float(i) / RATE
+			var f := 62.0 * (1.0 + float(v[1]) * t / 1.6)
+			if v[0] == "motore_acro":
+				f = 62.0 * (1.0 + 0.45 * sin(PI * t / 1.6))
+			fs += f / RATE
+			var saw := fmod(fs, 1.0) * 2.0 - 1.0
+			var env := minf(1.0, t * 4.0) * minf(1.0, (1.6 - t) * 3.0)
+			mm[i] = saw * (0.6 + 0.4 * sin(TAU * 11.0 * t)) * env * 0.35
+		banca[v[0]] = _wav(mm)
 	# vento: rumore che cresce e cala con un filtro che si apre (la scivolata d'aria)
 	var w := PackedFloat32Array()
 	w.resize(int(RATE * 1.4))
