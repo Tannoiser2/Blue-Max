@@ -516,19 +516,51 @@ func anima_manovra(a: Dictionary, ev: Dictionary, durata := 1.8, lineare := fals
 		elif i == 0 and dedup.size() > 1:
 			var dir0 = Vector3(sin(y0), 0, cos(y0))
 			tan = dir0 * 0.5
+		elif i == dedup.size() - 1 and i > 0 and absf(dy) < 1.1 and not (num in [10, 17]):
+			# arrivo già girato verso la prua finale (virate di 60 gradi)
+			var corda: Vector3 = (p - (dedup[i - 1] as Vector3))
+			var fin = Vector3(sin(y0 + dy), 0, cos(y0 + dy)) * corda.length()
+			tan = (corda + fin) * 0.25
 		curva.add_point(p, -tan, tan)
 	var esito: String = ev.get("esito", "")
+	var L = curva.get_baked_length()
+	var in_vite = num == 0 or esito == "vite" or a["stato"] == "vite"
+	# il muso segue la traiettoria: parte con la prua iniziale, segue la curva, chiude con la prua finale
+	var segue = L > 0.05 and not (num in [10, 17, 27, 28, 29, 30, 34, 35]) and not in_vite
+	var tangente = func(e: float) -> float:
+		var e1 = clampf(e - 0.03, 0.0, 1.0)
+		var e2 = clampf(e + 0.03, 0.0, 1.0)
+		var d: Vector3 = curva.sample_baked(e2 * L) - curva.sample_baked(e1 * L)
+		if d.length() < 0.0001:
+			return 0.0
+		return wrapf(atan2(d.x, d.z) - y0, -PI, PI)
+	if segue and absf(absf(dy) - PI) < 0.05:
+		# inversione: il verso di rotazione è quello in cui sta già curvando
+		var fine = tangente.call(0.9)
+		dy = PI if fine >= 0 else -PI
+	var lato = 0.0
+	if num in [10, 17]:
+		lato = signf(tangente.call(0.5))
+	var rotta = func(e: float) -> float:
+		if not segue:
+			return dy * e
+		var off = lerpf(0.0, tangente.call(e), smoothstep(0.0, 0.3, e))
+		return lerpf(off, dy, smoothstep(0.55, 1.0, e))
 	var tw = create_tween()
 	var fun = func(t: float):
 		var e = t if lineare else t * t * (3.0 - 2.0 * t)
-		var L = curva.get_baked_length()
 		var pos = curva.sample_baked(e * L) if L > 0.01 else dedup[0]
 		var h = lerpf(h0, h1, e)
-		var giro = y0 + dy * e
-		var rollio = 0.0
+		var giro = y0 + rotta.call(e)
 		var becc = 0.0
-		# virata: inclinazione delle ali proporzionale alla curva
-		rollio = -clampf(dy * 0.9, -1.1, 1.1) * sin(PI * e)
+		# inclinazione delle ali secondo quanto sta virando in quel momento
+		var vel_virata = (rotta.call(minf(e + 0.04, 1.0)) - rotta.call(maxf(e - 0.04, 0.0))) / 0.08
+		var rollio = -clampf(vel_virata * 0.45, -1.1, 1.1)
+		if not segue:
+			rollio = -clampf(dy * 0.9, -1.1, 1.1) * sin(PI * e)
+		if lato != 0.0:
+			# spostamento laterale: il muso resta avanti, le ali si inclinano verso il lato
+			rollio = lato * 0.55 * sin(PI * e)
 		if num in [29, 30]:
 			# Immelmann: mezzo giro della morte e mezzo tonneau
 			becc = -PI * smoothstep(0.0, 0.7, e)
@@ -540,7 +572,7 @@ func anima_manovra(a: Dictionary, ev: Dictionary, durata := 1.8, lineare := fals
 		elif num in [27, 28, 32, 33]:
 			becc = -sin(PI * e) * 1.2
 			h += sin(PI * e) * 0.4
-		elif num == 0 or esito == "vite" or a["stato"] == "vite":
+		elif in_vite:
 			giro = y0 + TAU * 1.5 * e
 			becc = 0.7
 			rollio = 0.5

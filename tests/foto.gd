@@ -80,6 +80,46 @@ func _ready() -> void:
 			m.gioco.mondo.dist_dest = 16.0
 			await get_tree().create_timer(2.0).timeout
 			await foto("nuvole2")
+		"traiettorie":
+			var codici = OS.get_environment("CODICI").split(",")
+			var lista = []
+			for i in codici.size():
+				lista.append({"tipo": "nieuport17", "nazione": "francia", "controllo": "umano", "pilota": {"nome": codici[i]}})
+			var R = Scenari.schermaglia(lista, {"seme": 1})
+			for a in R.S["aerei"]:
+				var i = codici.find(a["pilota"])
+				var r = 4 + (i / 3) * 5
+				a["r"] = r
+				a["q"] = 1 + (i % 3) * 4 - r / 2
+				a["prua"] = 0
+				a["quota"] = 2
+			m.avvia_partita(R, {})
+			await get_tree().create_timer(1.5).timeout
+			var mo = m.gioco.mondo
+			mo.vista_alto()
+			var cen = Vector3.ZERO
+			for a in R.S["aerei"]:
+				cen += mo.mondo_da_cella(Vector2i(a["q"], a["r"]))
+			var cm = Camera3D.new()
+			mo.add_child(cm)
+			cm.projection = Camera3D.PROJECTION_ORTHOGONAL
+			cm.size = 13.0
+			cm.global_position = cen / R.S["aerei"].size() + Vector3(0, 30, 0)
+			cm.look_at(cm.global_position - Vector3(0, 1, 0), Vector3(0, 0, -1))
+			cm.current = true
+			await get_tree().create_timer(1.0).timeout
+			m.gioco.modale.visible = false
+			for a in R.S["aerei"]:
+				var c = a["pilota"]
+				mo.anima_manovra(a, {"id": a["id"], "percorso": R.percorso(a, c), "quota_da": 2, "quota_a": 2, "codice": c, "esito": ""}, 2.4, true)
+			for k in 8:
+				await get_tree().create_timer(0.3).timeout
+				for i in codici.size():
+					var g: Node3D = mo.nodi[i]["radice"].duplicate()
+					mo.effetti.add_child(g)
+					g.global_transform = mo.nodi[i]["radice"].global_transform
+			await get_tree().create_timer(1.0).timeout
+			await foto("traiettorie")
 		"prue":
 			var lista = []
 			for i in 6:
