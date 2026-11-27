@@ -71,6 +71,7 @@ func principale_menu() -> void:
 	v.add_child(Tema.bottone("Tutorial: impara a volare", _tutorial, 28))
 	v.add_child(Tema.bottone("Scenari storici", scenari, 28))
 	v.add_child(Tema.bottone("Schermaglia libera", schermaglia, 28))
+	v.add_child(Tema.bottone("Entra in una partita online", entra_online, 28))
 	v.add_child(Tema.bottone("Campagna", _campagna, 28))
 	v.add_child(Tema.bottone("Regolamento", func(): add_child(Regolamento.new()), 28))
 	v.add_child(Tema.bottone("Crediti", crediti, 28))
@@ -155,7 +156,7 @@ func _scelta_ia() -> OptionButton:
 
 # --------------------------------------------------------------------------- schermaglia libera
 var squadre = {"G": [], "A": []}
-var opzioni_partita = {"togli_pilota_ucciso": true, "danni_visibili": false, "carburante_meta": false}
+var opzioni_partita = {"togli_pilota_ucciso": true, "danni_visibili": false, "carburante_meta": false, "tabella_corretta": false, "collisioni": false, "coda_piu_uno": false, "tiro_vite": false, "osservatore_limitato": false}
 
 func schermaglia() -> void:
 	if squadre["G"].is_empty() and squadre["A"].is_empty():
@@ -184,7 +185,10 @@ func schermaglia() -> void:
 	v.add_child(ho)
 	ho.add_child(Tema.etichetta("Computer:", 21, Tema.INCHIOSTRO, "grassetto"))
 	ho.add_child(_scelta_ia())
-	for o in [["togli_pilota_ucciso", "Togli la pedina «Pilota ucciso» (consigliato)"], ["danni_visibili", "Danni dei nemici visibili"], ["carburante_meta", "Regola opzionale: carburante dimezzato"]]:
+	ho.add_child(Tema.etichetta("Regole opzionali:", 21, Tema.INCHIOSTRO, "grassetto"))
+	for o in [["togli_pilota_ucciso", "Togli la pedina «Pilota ucciso» (consigliato)"], ["danni_visibili", "Danni dei nemici visibili"], ["carburante_meta", "Carburante dimezzato"],
+			["tabella_corretta", "Tabella di combattimento corretta GDW"], ["collisioni", "Collisioni in volo"], ["coda_piu_uno", "Una casella di coda in più"],
+			["tiro_vite", "Tiro su aereo in avvitamento -2"], ["osservatore_limitato", "Osservatore spara solo in volo dritto"]]:
 		var cb = CheckBox.new()
 		cb.text = o[1]
 		cb.button_pressed = opzioni_partita[o[0]]
@@ -231,7 +235,7 @@ func _riga_aereo(lato: String, i: int) -> Control:
 	oa.item_selected.connect(func(k): x["tipo"] = tipi[k])
 	g.add_child(oa)
 	var oc = OptionButton.new()
-	for t in ["Tu", "Computer", "Telefono"]:
+	for t in ["Tu", "Computer", "Online o telefono"]:
 		oc.add_item(t)
 	oc.selected = ["umano", "ia", "telefono"].find(x["controllo"])
 	oc.custom_minimum_size.x = 140
@@ -315,8 +319,8 @@ func _avvia_schermaglia() -> void:
 func telefoni(R: Regole) -> void:
 	_pulisci()
 	var v = _colonna(1100)
-	v.add_child(Tema.titolo("Gioca con i telefoni", 52, Tema.ROSSO))
-	v.add_child(Tema.etichetta("Lo schermo grande (TV, computer o iPad) mostra il cielo di Francia; ogni pilota sceglie manovre e raffiche dal suo telefono, in segreto. Inquadrate il QR code o aprite l'indirizzo e scrivete il vostro nome. Va bene anche da lontano: sul telefono c'è la mappa.", 20, Tema.SEPPIA, "testo", 1040))
+	v.add_child(Tema.titolo("Partita online e telefoni", 52, Tema.ROSSO))
+	v.add_child(Tema.etichetta("Ogni pilota «Online o telefono» può entrare in due modi, anche da un'altra città: dal telefono, inquadrando il QR code (sceglie manovre e raffiche in segreto, con la mappa piccola), oppure con il gioco completo da un altro computer o iPad, aprendo Blue Max e scegliendo «Entra in una partita online» con il codice della stanza. Chi entra prende il primo aereo libero; potete cambiare l'assegnazione qui sotto.", 20, Tema.SEPPIA, "testo", 1040))
 	var rete: Rete = principale.rete
 	var h = HBoxContainer.new()
 	h.add_theme_constant_override("separation", 24)
@@ -387,6 +391,54 @@ func telefoni(R: Regole) -> void:
 					a["giocatore"] = giocatori.get(u, "")
 		rete.evento.disconnect(ev)
 		principale.avvia_partita(R, {"livelli": {"G": opz_ia, "A": opz_ia}, "veloce": veloce}), 28, 240))
+
+# --------------------------------------------------------------------------- ospite online
+func entra_online() -> void:
+	_pulisci()
+	var v := _colonna(760)
+	v.add_child(Tema.titolo("Entra in una partita online", 44, Tema.ROSSO))
+	v.add_child(Tema.etichetta("Chiedi il codice di 4 lettere a chi ospita la partita (lo vede nella schermata «Partita online e telefoni»).", 20, Tema.SEPPIA, "testo", 700))
+	var g := GridContainer.new()
+	g.columns = 2
+	v.add_child(g)
+	g.add_child(Tema.etichetta("Codice", 22, Tema.INCHIOSTRO, "grassetto"))
+	var cod := LineEdit.new()
+	cod.max_length = 4
+	cod.custom_minimum_size.x = 200
+	g.add_child(cod)
+	g.add_child(Tema.etichetta("Il tuo nome", 22, Tema.INCHIOSTRO, "grassetto"))
+	var nome := LineEdit.new()
+	nome.max_length = 16
+	nome.text = principale.rete.carica("bluemax_nome")
+	nome.custom_minimum_size.x = 300
+	g.add_child(nome)
+	var stato := Tema.etichetta("", 20, Tema.ROSSO, "testo", 700)
+	v.add_child(stato)
+	var rete: Rete = principale.rete
+	var ev := func(e: Dictionary):
+		match e.get("e"):
+			"dentro":
+				stato.text = "Sei nella stanza %s: aspetta che chi ospita faccia partire la partita." % e.get("codice", "")
+			"errore":
+				stato.text = str(e.get("msg", "Errore di rete"))
+			"stato":
+				var d = JSON.parse_string(str(e.get("j", "")))
+				if d is Dictionary and d.has("S"):
+					principale.avvia_ospite(d["S"], int(d.get("anim", {}).get("seq", 0)))
+	rete.evento.connect(ev)
+	tree_exiting.connect(func():
+		if rete.evento.is_connected(ev):
+			rete.evento.disconnect(ev))
+	var h := HBoxContainer.new()
+	v.add_child(h)
+	h.add_child(Tema.bottone("Indietro", func(): rete.chiudi(); principale_menu(), 22))
+	h.add_child(Tema.bottone("Entra", func():
+		if not rete.web:
+			stato.text = "La partita online funziona nella versione web del gioco."
+			return
+		rete.salva("bluemax_nome", nome.text.strip_edges())
+		stato.text = "Mi collego..."
+		rete.entra(cod.text.strip_edges().to_upper(), nome.text.strip_edges() if nome.text.strip_edges() != "" else "Pilota"), 26, 200))
 
 # --------------------------------------------------------------------------- crediti
 func crediti() -> void:

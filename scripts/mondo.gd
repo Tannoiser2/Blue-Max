@@ -40,6 +40,7 @@ var spostato = 0.0
 var nodi = {}        # id -> {radice, modello, colonna, anello, fumo, fuoco, elica}
 var fantasma: Node3D
 var segni: Node3D     # marcatori del percorso
+var effetti: Node3D   # esplosioni, roghi, scintille (si tolgono con pulisci_effetti)
 var overlay: Control  # etichette 2D sopra gli aerei (non ruotano con la telecamera)
 var etichette = {}
 var animazioni = 0
@@ -59,6 +60,9 @@ func _ready() -> void:
 	perno_dest = perno
 	segni = Node3D.new()
 	add_child(segni)
+	_nuvole()
+	effetti = Node3D.new()
+	add_child(effetti)
 	_aggiorna_camera(true)
 
 # --------------------------------------------------------------------------- ambiente
@@ -67,12 +71,15 @@ func _ambiente() -> void:
 	var env = Environment.new()
 	var sky = Sky.new()
 	var ps = ProceduralSkyMaterial.new()
-	ps.sky_top_color = Color("6f8fb3")
-	ps.sky_horizon_color = Color("d9cfb8")
-	ps.ground_horizon_color = Color("b9ab8d")
-	ps.ground_bottom_color = Color("6d6250")
-	ps.sun_angle_max = 20
-	ps.sky_energy_multiplier = 0.9
+	ps.sky_top_color = Color("4f7db0")
+	ps.sky_horizon_color = Color("c9d4dc")
+	ps.ground_horizon_color = Color("c9d4dc")
+	ps.ground_bottom_color = Color("7f9fc0")
+	ps.sky_curve = 0.12
+	ps.ground_curve = 0.08
+	ps.sun_angle_max = 18
+	ps.sky_energy_multiplier = 0.85
+	ps.ground_energy_multiplier = 0.85
 	sky.sky_material = ps
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
@@ -81,8 +88,8 @@ func _ambiente() -> void:
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 0.85
 	env.fog_enabled = true
-	env.fog_light_color = Color("cfc4ad")
-	env.fog_density = 0.006
+	env.fog_light_color = Color("c3cfd9")
+	env.fog_density = 0.004
 	env.fog_sky_affect = 0.3
 	we.environment = env
 	add_child(we)
@@ -169,52 +176,45 @@ func _mappa() -> void:
 	mb.roughness = 1.0
 	base.material_override = mb
 	add_child(base)
-	# tavolo
-	var tav = MeshInstance3D.new()
-	var tm = PlaneMesh.new()
-	tm.size = Vector2(160, 160)
-	tav.mesh = tm
-	tav.position = Vector3(dim.x / 2, -0.3, dim.y / 2)
-	var mt = StandardMaterial3D.new()
-	mt.albedo_color = Color("4a5a3a")
-	mt.roughness = 1.0
-	tav.material_override = mt
-	add_child(tav)
+
 
 func griglia_visibile(v: bool) -> void:
 	mat_mappa.set_shader_parameter("griglia", 0.45 if v else 0.0)
 
 func _nuvole() -> void:
-	var rn = RandomNumberGenerator.new()
+	# cumuli tutto intorno: sopra, ai lati e sotto la mappa, che galleggia nel cielo
+	var rn := RandomNumberGenerator.new()
 	rn.seed = 77
-	var mat = StandardMaterial3D.new()
-	mat.albedo_color = Color(1, 0.98, 0.94, 0.5)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.97, 0.96, 0.93, 0.5)
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_VERTEX
 	mat.roughness = 1.0
-	for i in 14:
-		var g = Node3D.new()
-		var lato = rn.randi_range(0, 3)
-		var x = rn.randf_range(-12, dim.x + 12)
-		var z = rn.randf_range(-12, dim.y + 12)
-		if lato == 0: x = rn.randf_range(-14, -4)
-		elif lato == 1: x = rn.randf_range(dim.x + 4, dim.x + 14)
-		elif lato == 2: z = rn.randf_range(-14, -4)
-		else: z = rn.randf_range(dim.y + 4, dim.y + 14)
-		g.position = Vector3(x, rn.randf_range(3.5, 7.0), z)
-		for k in rn.randi_range(4, 7):
-			var s = MeshInstance3D.new()
-			var sm = SphereMesh.new()
-			var rr = rn.randf_range(1.2, 2.6)
+	var centro := Vector3(dim.x / 2, 0, dim.y / 2)
+	for i in 46:
+		var g := Node3D.new()
+		var ang := rn.randf_range(0, TAU)
+		var r := rn.randf_range(18, 70)
+		var y := rn.randf_range(-22, 9)
+		if i < 14:
+			# sotto la mappa: nuvole basse che si vedono dai bordi
+			r = rn.randf_range(4, 26)
+			y = rn.randf_range(-14, -5)
+		g.position = centro + Vector3(cos(ang) * r, y, sin(ang) * r)
+		var grande := rn.randf_range(1.0, 2.6)
+		for k in rn.randi_range(5, 9):
+			var sfera := MeshInstance3D.new()
+			var sm := SphereMesh.new()
+			var rr := rn.randf_range(1.3, 2.8) * grande
 			sm.radius = rr
-			sm.height = rr * 1.3
+			sm.height = rr * 1.2
 			sm.radial_segments = 12
 			sm.rings = 6
-			s.mesh = sm
-			s.material_override = mat
-			s.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			s.position = Vector3(rn.randf_range(-2.5, 2.5), rn.randf_range(-0.4, 0.6), rn.randf_range(-1.5, 1.5))
-			g.add_child(s)
+			sfera.mesh = sm
+			sfera.material_override = mat
+			sfera.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			sfera.position = Vector3(rn.randf_range(-3.0, 3.0), rn.randf_range(-0.5, 0.9), rn.randf_range(-2.0, 2.0)) * grande
+			g.add_child(sfera)
 		add_child(g)
 
 # --------------------------------------------------------------------------- coordinate
@@ -280,7 +280,8 @@ func _modello(tipo: String) -> Node3D:
 
 func crea_aerei() -> void:
 	for k in nodi:
-		nodi[k]["radice"].queue_free()
+		for parte in ["radice", "colonna", "anello"]:
+			nodi[k][parte].queue_free()
 	nodi.clear()
 	for a in R.S["aerei"]:
 		_crea_aereo(a)
@@ -332,7 +333,7 @@ func _crea_aereo(a: Dictionary) -> void:
 	freccia.material_override = ma
 	freccia.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	anello.add_child(freccia)
-	freccia.rotation_degrees = Vector3(-90, 0, 0)
+	freccia.rotation_degrees = Vector3(90, 0, 0)
 	freccia.position = Vector3(0, 0.2, 0.86)
 	freccia.scale = Vector3(1, 1, 1.0 / 0.15)
 	nodi[a["id"]] = {"radice": rad, "asse": asse, "modello": mod, "colonna": colonna, "anello": anello, "fumo": null, "fuoco": null,
@@ -412,6 +413,10 @@ func _effetti_stato(a: Dictionary) -> void:
 	elif not a["fuoco"] and n["fuoco"] != null:
 		n["fuoco"].queue_free()
 		n["fuoco"] = null
+
+func pulisci_effetti() -> void:
+	for c in effetti.get_children():
+		c.queue_free()
 
 func posizione_aereo(id: int) -> Vector3:
 	var n: Dictionary = nodi.get(id, {})
@@ -497,6 +502,8 @@ func anima_manovra(a: Dictionary, ev: Dictionary, durata := 1.8) -> void:
 		col.scale = Vector3(1, h, 1)
 	tw.tween_method(fun, 0.0, 1.0, durata)
 	n["anello"].visible = false
+	if absf(dy) > 0.6 or num >= 27 or h0 != h1:
+		Suoni.suona("vento", -3.0, randf_range(0.85, 1.15))
 	await tw.finished
 	animazioni -= 1
 
@@ -506,32 +513,41 @@ func aspetta_animazioni() -> void:
 
 # --------------------------------------------------------------------------- combattimento
 func spara(da: int, a: int, arma: String, raffica: String, colpito: bool) -> void:
-	var pa = posizione_aereo(da)
-	var pb = posizione_aereo(a)
-	var n: int = {"corta": 4, "media": 8, "lunga": 14}.get(raffica, 6)
-	var dir = (pb - pa).normalized()
-	var origine_colpi = pa + dir * 0.35 + Vector3(0, 0.08, 0)
-	var lampo = Effetti.lampo_bocca()
-	add_child(lampo)
+	var pa := posizione_aereo(da)
+	var pb := posizione_aereo(a)
+	var n: int = {"corta": 5, "media": 10, "lunga": 16}.get(raffica, 8)
+	var dir := (pb - pa).normalized()
+	var origine_colpi := pa + dir * 0.55 + Vector3(0, 0.1, 0)
+	if arma == "osservatore":
+		origine_colpi = pa - dir * 0.1 + Vector3(0, 0.18, 0)
+	Suoni.suona("raffica_" + raffica)
+	var lampo := Effetti.lampo_bocca()
+	effetti.add_child(lampo)
 	lampo.global_position = origine_colpi
-	get_tree().create_timer(0.25 + n * 0.06).timeout.connect(lampo.queue_free)
+	get_tree().create_timer(0.3 + n * 0.08).timeout.connect(lampo.queue_free)
 	for i in n:
-		var t = Effetti.traccia()
-		add_child(t)
-		var disp = Vector3(randf_range(-0.12, 0.12), randf_range(-0.08, 0.08), randf_range(-0.12, 0.12))
+		var t := Effetti.traccia()
+		effetti.add_child(t)
+		var disp := Vector3(randf_range(-0.15, 0.15), randf_range(-0.1, 0.1), randf_range(-0.15, 0.15))
 		if not colpito:
-			disp *= 4.0
-			disp += Vector3(randf_range(-0.4, 0.4), randf_range(0.1, 0.4), randf_range(-0.4, 0.4))
-		var dest = pb + disp
+			disp = disp * 3.0 + Vector3(randf_range(-0.5, 0.5), randf_range(0.2, 0.5), randf_range(-0.5, 0.5))
+		var dest := pb + disp
+		# la traccia prosegue oltre il bersaglio se manca
+		if not colpito:
+			dest = origine_colpi + (dest - origine_colpi) * 1.6
 		t.look_at_from_position(origine_colpi, dest, Vector3.UP)
-		var tw = create_tween()
-		tw.tween_property(t, "global_position", dest, 0.22).set_delay(i * 0.06)
+		t.visible = false
+		var tw := create_tween()
+		tw.tween_interval(i * 0.08)
+		tw.tween_callback(func(): t.visible = true)
+		tw.tween_property(t, "global_position", dest, 0.32)
 		tw.tween_callback(t.queue_free)
-	await get_tree().create_timer(0.22 + n * 0.06).timeout
+	await get_tree().create_timer(0.32 + n * 0.08).timeout
 	if colpito:
-		var sc = Effetti.scintille()
-		add_child(sc)
+		var sc := Effetti.scintille()
+		effetti.add_child(sc)
 		sc.global_position = pb
+		Suoni.suona("colpito", -4.0)
 		get_tree().create_timer(1.5).timeout.connect(sc.queue_free)
 
 func esplosione(id: int) -> void:
@@ -540,7 +556,8 @@ func esplosione(id: int) -> void:
 		return
 	var p = posizione_aereo(id)
 	var e = Effetti.esplosione()
-	add_child(e)
+	effetti.add_child(e)
+	Suoni.suona("esplosione")
 	e.global_position = p
 	get_tree().create_timer(4.0).timeout.connect(e.queue_free)
 	await precipita(id)
@@ -565,7 +582,7 @@ func precipita(id: int) -> void:
 		n["asse"].rotation = Vector3(1.0 * t, 0, 0.8), 0.0, 1.0, 2.4)
 	await tw.finished
 	var f = Effetti.rogo()
-	add_child(f)
+	effetti.add_child(f)
 	f.global_position = Vector3(rad.position.x, 0.05, rad.position.z)
 	rad.visible = false
 	n["colonna"].visible = false
@@ -668,7 +685,7 @@ func _limita() -> void:
 	perno_dest.x = clampf(perno_dest.x, -4, dim.x + 4)
 	perno_dest.z = clampf(perno_dest.z, -4, dim.y + 4)
 	dist_dest = clampf(dist_dest, 4.0, 45.0)
-	pitch_dest = clampf(pitch_dest, 12.0, 89.0)
+	pitch_dest = clampf(pitch_dest, -10.0, 89.0)
 
 func _sposta_schermo(d: Vector2) -> void:
 	var y = deg_to_rad(yaw)

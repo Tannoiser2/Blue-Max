@@ -21,6 +21,13 @@ var in_replay = false
 var nome_salvataggio = "bluemax_partita"
 var campagna: Dictionary = {}
 var dal_telefono = {}       # id aereo -> scelta arrivata dal telefono
+var ospite = false            # partita online vista da un altro computer
+var ultimo_anim = {}          # l'ultimo turno giocato, per far rivedere i movimenti all'ospite
+var coda_ospite = []
+var ospite_occupato = false
+var risposto = ""
+var anim_seq = 0
+var anim_visto = 0
 var richieste_tel = {}      # id aereo -> {tipo, opzioni}
 
 # interfaccia
@@ -28,6 +35,9 @@ var barra_fasi: HBoxContainer
 var lbl_turno: Label
 var lbl_fase: Label
 var scheda: SchedaAereo
+var miniatura: VistaDanni
+var bt_scheda: Button
+var bt_miniatura: Button
 var lista_aerei: VBoxContainer
 var pannello_azione: PanelContainer
 var titolo_azione: Label
@@ -73,6 +83,86 @@ func avvia(regole: Regole, m: Mondo, r: Rete, opz := {}) -> void:
 		add_child(tutorial)
 	await get_tree().process_frame
 	ciclo()
+
+## Partita online vista da un altro computer: lo stato arriva da chi ospita, le scelte partono da qui
+func avvia_ospite(S: Dictionary, m: Mondo, r: Rete, seq := 0) -> void:
+	ospite = true
+	anim_visto = seq
+	R = Regole.new(S)
+	mondo = m
+	rete = r
+	_costruisci()
+	mondo.R = R
+	mondo.imposta_overlay(overlay3d)
+	mondo.crea_aerei()
+	mondo.aereo_toccato.connect(_aereo_toccato)
+	rete.evento.connect(_evento_ospite)
+	_centra_inizio()
+	var mio = _mio_online()
+	mostra_aereo(mio["id"] if not mio.is_empty() else 0)
+	_aggiorna_lista()
+	_aggiorna_fasi(int(R.S.get("fase", 0)))
+	annuncia("Sei collegato alla partita online", 3.0)
+
+func _mio_online() -> Dictionary:
+	for a in R.S["aerei"]:
+		if a["controllo"] == "telefono" and a["uid"] == rete.uid:
+			return a
+	return {}
+
+func _evento_ospite(e: Dictionary) -> void:
+	if e.get("e") != "stato":
+		return
+	var d = JSON.parse_string(str(e.get("j", "")))
+	if d is Dictionary and d.has("S"):
+		coda_ospite.append(d)
+		if not ospite_occupato:
+			_elabora_ospite()
+
+func _elabora_ospite() -> void:
+	ospite_occupato = true
+	while not coda_ospite.is_empty():
+		var d: Dictionary = coda_ospite.pop_front()
+		# se ne sono arrivati altri, basta l'ultimo (ma senza perdere l'animazione del turno)
+		var anim: Dictionary = Regole.interi(d.get("anim", {}))
+		if not anim.is_empty() and int(anim.get("seq", 0)) > anim_visto:
+			anim_visto = int(anim["seq"])
+			_pulisci_azione("")
+			await _anima_turno(R, anim, 1.6)
+		R = Regole.new(d["S"])
+		mondo.R = R
+		mondo.crea_aerei()
+		_aggiorna_lista()
+		_aggiorna_fasi(int(R.S.get("fase", 0)))
+		mostra_aereo(aereo_mostrato if aereo_mostrato >= 0 else 0)
+		_aggiorna_diario()
+		var mio = _mio_online()
+		var rich: Dictionary = d.get("richieste", {})
+		if not mio.is_empty() and rich.has(str(mio["id"])):
+			var rq: Dictionary = rich[str(mio["id"])]
+			var chiave = "%d-%s" % [int(R.S["turno"]), rq["tipo"]]
+			if chiave != risposto and coda_ospite.is_empty():
+				risposto = chiave
+				Suoni.suona("avviso")
+				var auto = rete.parametri().has("auto")
+				if auto:
+					var ia_o = IA.new(R, "veterano")
+					if rq["tipo"] == "manovra":
+						var m0 = ia_o.scegli_manovra(mio, {})
+						rete.azione("manovra", {"id": mio["id"], "codice": m0["codice"], "quota": int(m0["quota"])})
+					else:
+						rete.azione("fuoco", {"id": mio["id"], "lista": ia_o.scegli_attacchi(mio).map(func(x): return {"a": x["a"], "arma": x["arma"], "raffica": x["raffica"]})})
+					print("OSPITE risponde ", rq["tipo"], " turno ", R.S["turno"])
+				elif rq["tipo"] == "manovra":
+					var m = await _scelta_umana(mio, {}, str(rq.get("info", "")))
+					rete.azione("manovra", {"id": mio["id"], "codice": m["codice"], "quota": int(m["quota"])})
+				else:
+					var l = await _fuoco_umano(mio)
+					rete.azione("fuoco", {"id": mio["id"], "lista": l.map(func(x): return {"a": x["a"], "arma": x["arma"], "raffica": x["raffica"]})})
+				_pulisci_azione("In attesa degli altri piloti")
+		if d.get("finita", false):
+			annuncia("Fine del combattimento", 4.0)
+	ospite_occupato = false
 
 func _primo_umano() -> int:
 	for a in R.S["aerei"]:
@@ -152,9 +242,25 @@ func _costruisci() -> void:
 	var vs = VBoxContainer.new()
 	vs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sc.add_child(vs)
+	var sw = HBoxContainer.new()
+	sw.add_theme_constant_override("separation", 4)
+	vs.add_child(sw)
+	bt_scheda = Tema.bottone("Scheda", func(): _vista_aereo(false), 18)
+	bt_miniatura = Tema.bottone("Miniatura", func(): _vista_aereo(true), 18)
+	for b in [bt_scheda, bt_miniatura]:
+		b.toggle_mode = true
+		b.add_theme_stylebox_override("pressed", Tema.box(Tema.ORO, Tema.INCHIOSTRO, 2, 6, 8))
+		b.add_theme_color_override("font_pressed_color", Tema.INCHIOSTRO)
+		b.add_theme_stylebox_override("normal", Tema.box(Color("4f3d28"), Tema.NOTTE_BORDO, 2, 6, 8))
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sw.add_child(b)
 	scheda = SchedaAereo.new()
 	scheda.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vs.add_child(scheda)
+	miniatura = VistaDanni.new()
+	miniatura.visible = false
+	vs.add_child(miniatura)
+	bt_scheda.button_pressed = true
 	vs.add_child(Tema.etichetta("Aerei in volo", 20, Tema.ORO, "grassetto"))
 	lista_aerei = VBoxContainer.new()
 	vs.add_child(lista_aerei)
@@ -162,7 +268,7 @@ func _costruisci() -> void:
 	destra = Tema.pannello_scuro(8)
 	destra.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
 	destra.offset_top = 70
-	destra.offset_left = -540
+	destra.offset_left = -600
 	destra.offset_right = -8
 	destra.offset_bottom = -8
 	add_child(destra)
@@ -177,6 +283,7 @@ func _costruisci() -> void:
 	va.add_child(sca)
 	corpo_azione = VBoxContainer.new()
 	corpo_azione.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	corpo_azione.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	sca.add_child(corpo_azione)
 	bottoni_azione = HBoxContainer.new()
 	bottoni_azione.alignment = BoxContainer.ALIGNMENT_END
@@ -246,6 +353,8 @@ func _aggiorna_fasi(f: int) -> void:
 		c.add_theme_stylebox_override("normal", s)
 	lbl_fase.text = Regole.FASI[f]
 	lbl_turno.text = "Turno %d" % int(R.S["turno"]) if R else "Turno 1"
+	if ospite:
+		return
 	R.S["fase"] = f
 	_pubblica()
 
@@ -280,7 +389,7 @@ func _aggiorna_lista() -> void:
 		var stato = ""
 		if not R.in_gioco(a):
 			stato = " - " + {"abbattuto": "abbattuto", "fuggito": "rientrato", "atterrato": "atterrato", "catturato": "catturato"}.get(a["stato"], "")
-		var chi = {"umano": "Tu", "ia": "Computer", "telefono": "Telefono"}.get(a["controllo"], "")
+		var chi = {"umano": "Tu", "ia": "Computer", "telefono": "Online"}.get(a["controllo"], "")
 		if a["controllo"] == "umano" and a["giocatore"] != "":
 			chi = a["giocatore"]
 		b.text = "%s  (%s)  %s%s" % [a["pilota"], Dati.aerei[a["tipo"]]["nome"], chi, stato]
@@ -300,6 +409,17 @@ func mostra_aereo(id: int) -> void:
 	aereo_mostrato = id
 	var a = R.aereo(id)
 	scheda.imposta(R, a, _segreto(a))
+	if miniatura.visible:
+		miniatura.imposta(a, _segreto(a))
+
+func _vista_aereo(mini: bool) -> void:
+	bt_scheda.button_pressed = not mini
+	bt_miniatura.button_pressed = mini
+	scheda.visible = not mini
+	miniatura.visible = mini
+	if mini and aereo_mostrato >= 0:
+		var a = R.aereo(aereo_mostrato)
+		miniatura.imposta(a, _segreto(a))
 
 ## I danni dei nemici restano segreti (regola della Segretezza), salvo opzione contraria
 func _segreto(a: Dictionary) -> bool:
@@ -361,6 +481,9 @@ func turno() -> void:
 	mondo.pulisci_segni()
 	mondo.pulisci_evid()
 	var evm = R.fase_movimento()
+	anim_seq += 1
+	ultimo_anim = {"seq": anim_seq, "mov": evm}
+	Suoni.suona("motore", -6.0)
 	turno_corrente["mov"] = evm
 	for ev in evm:
 		mondo.anima_manovra(R.aereo(ev["id"]), ev, 1.9 if not veloce else 1.0)
@@ -397,6 +520,7 @@ func turno() -> void:
 	_aggiorna_fasi(8)
 	var evi = R.fase_incendi()
 	if not evi.is_empty():
+		Suoni.suona("fuoco")
 		await _mostra_danni(evi)
 	_aggiorna_fasi(9)
 	_messaggi(R.fase_spegnimento())
@@ -407,6 +531,7 @@ func turno() -> void:
 	await mondo.aspetta_animazioni()
 	R.fine_turno()
 	storia.append(turno_corrente)
+
 	_aggiorna_lista()
 	mostra_aereo(aereo_mostrato)
 	_aggiorna_diario()
@@ -513,12 +638,12 @@ func _pulisci_azione(t: String) -> void:
 		c.queue_free()
 	_cb_tocco_aereo = Callable()
 
-func _scelta_umana(a: Dictionary, mia: Dictionary) -> Dictionary:
+func _scelta_umana(a: Dictionary, mia: Dictionary, info_testo := "") -> Dictionary:
 	mostra_aereo(a["id"])
 	mondo.centra_su(mondo.posizione_aereo(a["id"]), 14.0)
 	var possibili = R.manovre_possibili(a)
 	_pulisci_azione("Manovra di %s" % a["pilota"])
-	var testo_info = _testo_info(mia)
+	var testo_info = _testo_info(mia) if info_testo == "" else info_testo
 	if testo_info != "":
 		corpo_azione.add_child(_nota(testo_info, Tema.ORO))
 	var tallonatori: Array = a.get("tallonato_da", [])
@@ -531,7 +656,8 @@ func _scelta_umana(a: Dictionary, mia: Dictionary) -> Dictionary:
 	var vincoli = _vincoli(a)
 	if vincoli != "":
 		corpo_azione.add_child(_nota(vincoli, Color("d8c8a8")))
-	var foglio = Tema.pannello(Color("efe5cc"), Tema.SEPPIA, 8)
+	var foglio = Tema.pannello(Color("efe5cc"), Tema.SEPPIA, 6)
+	foglio.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	corpo_azione.add_child(foglio)
 	var sm = SchedaMovimento.new()
 	foglio.add_child(sm)
@@ -649,9 +775,12 @@ func _fase_fuoco() -> void:
 		richieste_tel.clear()
 		dal_telefono.clear()
 	if attacchi.is_empty():
+		R.fase_combattimento([])
 		return
 	var eventi = R.fase_combattimento(attacchi)
 	turno_corrente["fuoco"] = eventi.map(func(e): return {"da": e["da"], "a": e["a"], "raffica": e["raffica"], "arma": e["arma"], "colpito": int(e["blu"]) + int(e["rosse"]) > 0})
+	anim_seq += 1
+	ultimo_anim = {"seq": anim_seq, "fuoco": turno_corrente["fuoco"]}
 	for ev in eventi:
 		await _mostra_attacco(ev)
 	_aggiorna_diario()
@@ -752,16 +881,11 @@ func _mostra_attacco(ev: Dictionary) -> void:
 	fin.ev = ev
 	fin.segreto = _segreto(b)
 	fin.veloce = veloce or in_replay
-	modale.add_child(fin)
-	velo.visible = true
-	velo.color = Color(0, 0, 0, 0.25)
-	if rete:
-		rete.suono("raffica")
-	mondo.spara(a["id"], b["id"], ev["arma"], ev["raffica"], colpito)
+	add_child(fin)
+	move_child(fin, banner.get_index())
+	await mondo.spara(a["id"], b["id"], ev["arma"], ev["raffica"], colpito)
 	await fin.mostra()
 	fin.queue_free()
-	velo.visible = false
-	velo.color = Color(0, 0, 0, 0.55)
 
 # --------------------------------------------------------------------------- fase 6: danni
 func _mostra_danni(ev: Array) -> void:
@@ -779,8 +903,6 @@ func _mostra_danni(ev: Array) -> void:
 			var spec = ""
 			for p in a["danni_visti"]:
 				spec = p.get("spec", spec)
-			if rete:
-				rete.suono("esplosione")
 			if spec == "esplosione" or a["fuoco"]:
 				await mondo.esplosione(a["id"])
 			else:
@@ -788,6 +910,8 @@ func _mostra_danni(ev: Array) -> void:
 			n["stato"] = "abbattuto"
 			annuncia("%s è abbattuto!" % R.nome(a), 3.0)
 			turno_corrente["danni"].append(a["id"])
+			anim_seq += 1
+			ultimo_anim = {"seq": anim_seq, "danni": [a["id"]]}
 			await _pausa(1.0)
 		else:
 			mondo.aggiorna(a)
@@ -830,6 +954,29 @@ func fine_partita() -> void:
 	velo.visible = true
 	modale.add_child(p)
 
+## Anima un turno già giocato a partire dallo stato R0 (replay e ospite online)
+func _anima_turno(R0: Regole, t: Dictionary, durata := 1.2) -> void:
+	for ev in t.get("mov", []):
+		var a = R0.aereo(int(ev["id"]))
+		if R0.in_gioco(a):
+			mondo.anima_manovra(a, ev, durata)
+	await get_tree().process_frame
+	await mondo.aspetta_animazioni()
+	for ev in t.get("mov", []):
+		var a = R0.aereo(int(ev["id"]))
+		var f: Dictionary = ev["percorso"][-1]
+		a["q"] = int(f["q"])
+		a["r"] = int(f["r"])
+		a["prua"] = int(f["prua"])
+		a["quota"] = int(ev["quota_a"])
+		if ev["esito"] == "fuga":
+			a["stato"] = "fuggito"
+		mondo.aggiorna(a)
+	for f in t.get("fuoco", []):
+		await mondo.spara(int(f["da"]), int(f["a"]), f["arma"], f["raffica"], f["colpito"])
+	for id in t.get("danni", []):
+		await mondo.esplosione(int(id))
+
 func replay() -> void:
 	if storia.is_empty():
 		return
@@ -840,40 +987,31 @@ func replay() -> void:
 	destra.visible = false
 	annuncia("Replay del combattimento", 2.0)
 	for t in storia:
-		var finto = Regole.new(t["inizio"])
-		mondo.R = finto
+		var finto = Regole.new(JSON.parse_string(JSON.stringify(t["inizio"])))
 		R = finto
-		for a in finto.S["aerei"]:
-			mondo.nodi[a["id"]]["stato"] = a["stato"]
-			mondo.nodi[a["id"]]["radice"].visible = finto.in_gioco(a)
-			mondo.aggiorna(a)
-		lbl_turno.text = "Replay - turno %d" % int(t["inizio"]["turno"])
-		for ev in t["mov"]:
-			mondo.anima_manovra(finto.aereo(ev["id"]), ev, 1.1)
-		await get_tree().process_frame
-		await mondo.aspetta_animazioni()
-		for ev in t["mov"]:
-			var a = finto.aereo(ev["id"])
-			var f: Dictionary = ev["percorso"][-1]
-			a["q"] = f["q"]
-			a["r"] = f["r"]
-			a["prua"] = f["prua"]
-			a["quota"] = ev["quota_a"]
-			if ev["esito"] == "fuga":
-				a["stato"] = "fuggito"
-			mondo.aggiorna(a)
-		for f in t["fuoco"]:
-			await mondo.spara(int(f["da"]), int(f["a"]), f["arma"], f["raffica"], f["colpito"])
-		for id in t["danni"]:
-			await mondo.esplosione(int(id))
-		await get_tree().create_timer(0.3).timeout
+		mondo.R = finto
+		mondo.pulisci_effetti()
+		mondo.crea_aerei()
+		lbl_turno.text = "Replay - turno %d" % int(finto.S["turno"])
+		if t == storia[0]:
+			_centra_inizio()
+		else:
+			var s = Vector3.ZERO
+			var n = 0
+			for a in finto.attivi():
+				s += mondo.mondo_da_cella(finto.pos(a))
+				n += 1
+			if n > 0:
+				mondo.centra_su(s / n)
+		await get_tree().create_timer(0.2).timeout
+		await _anima_turno(finto, t)
+		await get_tree().create_timer(0.4).timeout
 	R = vero
 	mondo.R = vero
-	for a in vero.S["aerei"]:
-		mondo.aggiorna(a)
+	mondo.pulisci_effetti()
+	mondo.crea_aerei()
 	in_replay = false
 	sinistra.visible = true
-	destra.visible = true
 	lbl_turno.text = "Turno %d" % int(R.S["turno"])
 	velo.visible = true
 
@@ -951,7 +1089,11 @@ func _pubblica() -> void:
 	for id in richieste_tel:
 		if not dal_telefono.has(id):
 			rich[str(id)] = richieste_tel[id]
-	rete.stato({"turno": R.S["turno"], "fase": R.S["fase"], "aerei": aerei, "richieste": rich, "finita": R.S["finita"],
+	if ospite:
+		return
+	var S2 = R.S.duplicate()
+	S2["diario"] = R.S["diario"].slice(maxi(0, R.S["diario"].size() - 40))
+	rete.stato({"turno": R.S["turno"], "fase": R.S["fase"], "aerei": aerei, "richieste": rich, "finita": R.S["finita"], "S": S2, "anim": ultimo_anim,
 		"diario": R.S["diario"].slice(maxi(0, R.S["diario"].size() - 8)).map(func(d): return d["testo"])})
 
 func _evento_rete(e: Dictionary) -> void:

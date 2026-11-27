@@ -722,7 +722,7 @@
    ],
    "velocita_max": 3,
    "disponibile_dal": 1,
-   "provvisorio": "manca la Scheda-Movimento: usate le manovre del Fokker Dr.I"
+   "provvisorio": ""
   },
   {
    "id": "bristol",
@@ -813,15 +813,19 @@
     "20S3",
     "21S3",
     "22S3",
+    "23S3",
     "18A3",
     "4A3",
     "19A3",
     "20D3",
     "21D3",
     "22D3",
+    "23D3",
     "30S2",
     "30D2",
     "29A2",
+    "31S2",
+    "31D2",
     "32A3",
     "33A3",
     "34A3",
@@ -831,7 +835,7 @@
    ],
    "velocita_max": 3,
    "disponibile_dal": 5,
-   "provvisorio": "manca la Scheda-Movimento: usate le manovre dello Spad VII"
+   "provvisorio": ""
   },
   {
    "id": "camel",
@@ -871,6 +875,7 @@
     "3A3",
     "14D3",
     "15D3",
+    "16D3",
     "28S2",
     "27A2",
     "28D2",

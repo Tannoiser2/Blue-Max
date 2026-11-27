@@ -26,6 +26,9 @@ func _ready() -> void:
 		_prova(p["prova"])
 		return
 	mostra_menu()
+	if p.has("entra"):
+		menu.entra_online()
+		rete.entra(str(p["entra"]).to_upper(), str(p.get("nome", "Ospite")))
 
 func mostra_menu() -> void:
 	if gioco:
@@ -54,6 +57,15 @@ func avvia_partita(R: Regole, opz := {}) -> void:
 	radice.add_child(gioco)
 	gioco.uscita.connect(_fine_partita.bind(opz))
 	gioco.avvia(R, mondo, rete, opz)
+
+func avvia_ospite(S: Dictionary, seq := 0) -> void:
+	if menu:
+		menu.queue_free()
+		menu = null
+	gioco = Gioco.new()
+	radice.add_child(gioco)
+	gioco.uscita.connect(func(): rete.chiudi(); mostra_menu())
+	gioco.avvia_ospite(S, mondo, rete, seq)
 
 func _fine_partita(opz: Dictionary) -> void:
 	var camp: Dictionary = opz.get("campagna", {})

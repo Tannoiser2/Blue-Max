@@ -79,13 +79,13 @@ static func lampo_bocca() -> Node3D:
 	var n = Node3D.new()
 	var l = OmniLight3D.new()
 	l.light_color = Color(1, 0.85, 0.5)
-	l.light_energy = 2.0
-	l.omni_range = 1.4
+	l.light_energy = 3.0
+	l.omni_range = 2.2
 	n.add_child(l)
 	var p = CPUParticles3D.new()
-	p.amount = 24
+	p.amount = 40
 	p.lifetime = 0.15
-	p.mesh = _sfera(0.035, Color.WHITE, true)
+	p.mesh = _sfera(0.06, Color.WHITE, true)
 	p.spread = 25
 	p.initial_velocity_min = 0.8
 	p.initial_velocity_max = 1.6
@@ -98,15 +98,16 @@ static func lampo_bocca() -> Node3D:
 static func traccia() -> MeshInstance3D:
 	var m = MeshInstance3D.new()
 	var c = CylinderMesh.new()
-	c.top_radius = 0.012
-	c.bottom_radius = 0.012
-	c.height = 0.32
+	c.top_radius = 0.028
+	c.bottom_radius = 0.018
+	c.height = 0.7
 	c.radial_segments = 4
 	var mat = StandardMaterial3D.new()
-	mat.albedo_color = Color(1, 0.85, 0.4)
+	mat.albedo_color = Color(1, 0.92, 0.55)
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.emission_enabled = true
-	mat.emission = Color(1, 0.7, 0.3)
+	mat.emission = Color(1, 0.75, 0.3)
+	mat.emission_energy_multiplier = 3.0
 	c.material = mat
 	m.mesh = c
 	m.rotation_degrees = Vector3(90, 0, 0)

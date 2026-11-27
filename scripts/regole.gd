@@ -19,9 +19,23 @@ func _init(stato: Dictionary = {}) -> void:
 	for c in Dati.mappa.get("celle", []):
 		celle[Vector2i(int(c[0]), int(c[1]))] = true
 	if not stato.is_empty():
-		S = stato
+		S = interi(stato)
 		rng.seed = int(S.get("seme", 1))
 		rng.state = int(S.get("rng", 1))
+
+## Dopo un passaggio in JSON i numeri tornano decimali: rimette interi quelli che lo sono
+static func interi(v: Variant) -> Variant:
+	if v is Dictionary:
+		for k in v.keys():
+			v[k] = interi(v[k])
+		return v
+	if v is Array:
+		for i in v.size():
+			v[i] = interi(v[i])
+		return v
+	if v is float and v == floor(v) and absf(v) < 1e15:
+		return int(v)
+	return v
 
 static func nuova(opzioni: Dictionary) -> Dictionary:
 	return {"turno": 1, "fase": 0, "aerei": [], "opzioni": opzioni, "seme": int(opzioni.get("seme", randi())),
@@ -61,7 +75,7 @@ func aggiungi(tipo: String, nazione: String, q: int, r: int, prua: int, quota: i
 		"novellino": bool(pilota.get("novellino", false)), "asso": int(pilota.get("abbattimenti", 0)) >= 5,
 		"bonus_tiro": int(pilota.get("bonus_tiro", 1 if "bonus_tiro" in pilota.get("abilita", []) else 0)),
 		"q": q, "r": r, "prua": posmod(prua, 6), "quota": quota,
-		"carb": int(t["carburante"]), "ali": int(t["ali"]), "fus": int(t["fusoliera"]), "coda": int(t["coda"]), "motore": int(t["motore"]),
+		"carb": int(t["carburante"]), "ali": int(t["ali"]), "fus": int(t["fusoliera"]), "coda": int(t["coda"]) + (1 if S["opzioni"].get("coda_piu_uno", false) else 0), "motore": int(t["motore"]),
 		"mitra": mitra, "oss": oss, "stato": "volo", "fuoco": false, "fumo": false,
 		"timone": {}, "ferito_lento": false, "ferito_avanti": false, "no_acro": false, "no_veloce": false,
 		"ultima": "", "manovra": "", "quota_cambio": 0, "obbligo": 0, "stallo": false, "vite": false,
@@ -242,7 +256,8 @@ func manovre_possibili(a: Dictionary) -> Array:
 			if a["novellino"] or a["no_acro"] or a["fuoco"]:
 				continue
 			if not ha(a, "acrobatiche"):
-				if ult.is_empty() or not (int(ult["n"]) in [2, 3, 4, 5]):
+				var stessa = a["ultima"] == c and not g["non_ripetibile"]
+				if not stessa and (ult.is_empty() or not (int(ult["n"]) in [2, 3, 4, 5])):
 					continue
 		if a["no_veloce"] and vel >= 3:
 			continue
@@ -398,7 +413,38 @@ func fase_movimento() -> Array:
 		a["ultima"] = c
 		a["obbligo"] = 0
 		eventi.append({"id": a["id"], "percorso": per, "quota_da": qda, "quota_a": a["quota"], "esito": esito, "codice": c})
+	if S["opzioni"].get("collisioni", false):
+		_collisioni()
 	return eventi
+
+## Regola opzionale: aerei nello stesso esagono e alla stessa quota tirano un dado; chi fa lo stesso numero si scontra
+## e prende due pedine-danno rosse.
+func _collisioni() -> void:
+	var gruppi = {}
+	for a in attivi():
+		var k = "%d,%d,%d" % [int(a["q"]), int(a["r"]), int(a["quota"])]
+		if not gruppi.has(k):
+			gruppi[k] = []
+		gruppi[k].append(a)
+	for k in gruppi:
+		var l: Array = gruppi[k]
+		if l.size() < 2:
+			continue
+		var dadi = {}
+		for a in l:
+			var d = d6()
+			if not dadi.has(d):
+				dadi[d] = []
+			dadi[d].append(a)
+		for d in dadi:
+			if dadi[d].size() >= 2:
+				for a in dadi[d]:
+					annota("%s si scontra in volo!" % nome(a), "abbattuto")
+					for i in 2:
+						var p = pesca("R")
+						p["fronte"] = false
+						p["retro"] = false
+						a["danni_turno"].append(p)
 
 func _entra_vite(a: Dictionary, perche: String) -> void:
 	if a["stato"] == "vite":
@@ -452,7 +498,10 @@ func puo_sparare(a: Dictionary, b: Dictionary) -> Array:
 			out.append({"arma": "pilota", "distanza": dist})
 	# osservatore: tutto l'arco posteriore tranne l'esagono subito dietro (salvo bersaglio più in alto)
 	var o: Dictionary = a["oss"]
-	if not o.is_empty() and o["presente"] and o["vivo"] and int(o["ferito"]) <= 0 and not o["inceppata"] and _oss_munizioni(a):
+	var oss_ok = true
+	if S["opzioni"].get("osservatore_limitato", false) and a["ultima"] != "":
+		oss_ok = int(Dati.codice(a["ultima"])["n"]) in [1, 2, 3, 4, 5, 6, 7, 12, 13, 18, 19, 25, 26]
+	if oss_ok and not o.is_empty() and o["presente"] and o["vivo"] and int(o["ferito"]) <= 0 and not o["inceppata"] and _oss_munizioni(a):
 		if pa != pb and Hex.in_arco_posteriore(pa, a["prua"], pb, 3):
 			var dietro = Hex.vicino(pa, int(a["prua"]) + 3)
 			if not (pb == dietro and int(b["quota"]) <= int(a["quota"])):
@@ -527,7 +576,14 @@ func valore_fuoco(a: Dictionary, b: Dictionary, arma: String, raffica: String) -
 			mod.append([nomem, x])
 		return x
 	v += agg.call("Raffica " + raffica, raffica)
-	v += agg.call("Stabilità " + stabilita(a), "stab_" + stabilita(a))
+	var corretta = S["opzioni"].get("tabella_corretta", false)
+	if corretta and stabilita(a) == "C":
+		var xc: int = [0, 0, 0, 1][k]
+		if xc != 0:
+			mod.append(["Stabilità C", xc])
+		v += xc
+	else:
+		v += agg.call("Stabilità " + stabilita(a), "stab_" + stabilita(a))
 	if Dati.codice(b["ultima"])["n"] == 1 and b["ultima"] != "":
 		v += agg.call("Bersaglio in stallo", "stallo")
 	var vel = int(Dati.codice(a["ultima"])["vel"]) if a["ultima"] != "" else 0
@@ -548,8 +604,19 @@ func valore_fuoco(a: Dictionary, b: Dictionary, arma: String, raffica: String) -
 		v += agg.call("Bersaglio già inquadrato", "inquadrato")
 	if arma == "pilota" and int(a.get("tallona", -1)) == int(b["id"]):
 		v += agg.call("Bersaglio tallonato", "tallonato")
-	if int(b["quota"]) < int(a["quota"]):
+	if corretta:
+		if int(b["quota"]) != int(a["quota"]):
+			var xq: int = [-4, -3, -2, -1][k]
+			v += xq
+			mod.append(["Quota diversa", xq])
+	elif int(b["quota"]) < int(a["quota"]):
 		v += agg.call("Bersaglio più in basso", "inferiore")
+	if S["opzioni"].get("tiro_vite", false) and b["stato"] == "vite":
+		v -= 2
+		mod.append(["Bersaglio in avvitamento", -2])
+		if not angolata and not ha(a, "angolato"):
+			v -= 1
+			mod.append(["Avvitamento: sempre angolato", -1])
 	if arma == "pilota" and ha(a, "mira"):
 		v += 1
 		mod.append(["Mira (Asso)", 1])
@@ -571,8 +638,6 @@ func _angolata(a: Dictionary, b: Dictionary, arma: String) -> bool:
 ## attacchi: [{da, a, arma, raffica}] — risolti tutti insieme; restituisce gli eventi per l'animazione
 func fase_combattimento(attacchi: Array) -> Array:
 	var eventi = []
-	for b in attivi():
-		b["danni_turno"] = []
 	for x in S["aerei"]:
 		x["spari"] = {}
 	var per_bersaglio = {}
@@ -646,6 +711,8 @@ func _da_fronte(a: Dictionary, b: Dictionary) -> bool:
 	return int(a["quota"]) == int(b["quota"]) and Hex.in_arco_frontale(pos(b), b["prua"], pos(a), 3)
 
 func _da_retro(a: Dictionary, b: Dictionary) -> bool:
+	if pos(a) == pos(b):
+		return true
 	return int(a["quota"]) == int(b["quota"]) and Hex.in_arco_posteriore(pos(b), b["prua"], pos(a), 3)
 
 func _consuma_munizioni(a: Dictionary, arma: String, raffica: String) -> void:
@@ -739,6 +806,8 @@ func applica_pedina(b: Dictionary, p: Dictionary) -> Dictionary:
 			if not b["oss"].is_empty():
 				b["oss"]["ferito"] = 3
 		"fuoco":
+			if p.has("da"):
+				b["incendiato_da"] = int(p["da"])
 			b["fuoco"] = true
 			b["fumo"] = false
 			annota("%s prende fuoco!" % nome(b), "fuoco")
@@ -778,11 +847,20 @@ func _distrutto(b: Dictionary, perche: String) -> void:
 
 ## L'abbattimento va a chi ha colpito l'aereo in questo turno (non per gli incendi)
 func _accredita(b: Dictionary) -> void:
+	var dati = false
 	for k in b["colpito_da"]:
 		if int(b["colpito_da"][k]) == int(S["turno"]):
 			var a = aereo(int(k))
+			if a["stato"] == "abbattuto":
+				continue
 			a["abbattimenti"] = int(a["abbattimenti"]) + 1
+			dati = true
 			annota("Abbattimento accreditato a %s." % a["pilota"], "vittoria")
+	if not dati and b.has("incendiato_da") and (b["fuoco"] or b.get("vite_finale", false)):
+		var a = aereo(int(b["incendiato_da"]))
+		if a["stato"] != "abbattuto":
+			a["abbattimenti"] = int(a["abbattimenti"]) + 1
+			annota("Abbattimento accreditato a %s, che aveva appiccato l'incendio." % a["pilota"], "vittoria")
 
 # --------------------------------------------------------------------------- recupero, incidenti, incendi
 func fase_recupero() -> Array:

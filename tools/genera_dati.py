@@ -61,16 +61,20 @@ aerei = [
  ('triplane', 'Sopwith Triplane', ['inghilterra'], 'A', 6, 23, 18, 4, 52, '1M', 'MA', SET_DR1),
  ('bristol', 'Bristol F.2B', ['inghilterra'], 'A', 8, 40, 28, 6, 67, '1M,2O,L', 'MA',
   sp('1S1 1A1 1D1 8S2 9S2 10S2 6A2 2A2 7A2 8D2 9D2 10D2 14S3 16S3 12A3 3A3 13A3 14D3 16D3 27A2 31S2 31D2')),
- ('se5a', 'S.E.5a', ['inghilterra'], 'A', 8, 24, 21, 5, 52, '1M,1ML', 'MA', SET_SPAD7),
+ # S.E.5a: manovre dal foglio AMS revisionato (cartella ADD), che manca fra le Tabelle-Movimento italiane
+ ('se5a', 'S.E.5a', ['inghilterra'], 'A', 8, 24, 21, 5, 52, '1M,1ML', 'MA',
+  sp('1A1 8S1 10S1 6A1 2A1 7A1 8D1 10D1 14S2 16S2 17S2 12A2 3A2 13A2 14D2 16D2 17D2 '
+     '20S3 21S3 22S3 23S3 18A3 4A3 19A3 20D3 21D3 22D3 23D3 30S2 30D2 29A2 31S2 31D2 32A3 33A3 34A3 35A3 36S3 36D3')),
  ('camel', 'Sopwith Camel', ['inghilterra'], 'C', 6, 24, 18, 4, 55, '2M', 'A',
-  sp('1S1 1A1 1D1 8S2 10S2 6A2 2A2 7A2 8D1 9D1 10D2 11D1 14S3 16S3 3A3 14D3 15D3 28S2 27A2 28D2 31S2 31D2 34A3 35A3')),
+  # Camel: Tabella-Movimento corretta GDW (cartella ADD), con la 16D3 che mancava
+  sp('1S1 1A1 1D1 8S2 10S2 6A2 2A2 7A2 8D1 9D1 10D2 11D1 14S3 16S3 3A3 14D3 15D3 16D3 28S2 27A2 28D2 31S2 31D2 34A3 35A3')),
  ('spad13', 'Spad XIII', ['francia', 'usa'], 'B', 8, 24, 20, 6, 52, '2M', 'MA',
   SET_SPAD7[:-2] + sp('25A4 5A4 26A4 36S3 36D3')),
  ('nieuport28', 'Nieuport 28', ['usa'], 'B', 6, 22, 20, 5, 45, '2M', 'A', SET_ALB5),
  ('snipe', 'Sopwith Snipe', ['inghilterra'], 'A', 6, 27, 19, 5, 67, '2M', 'A', SET_SNIPE),
 ]
-PROVVISORI = {'triplane': 'manca la Scheda-Movimento: usate le manovre del Fokker Dr.I',
-              'se5a': 'manca la Scheda-Movimento: usate le manovre dello Spad VII'}
+# Il Sopwith Triplane usa la stessa Tabella-Movimento del Fokker Dr.I (foglio AMS «Fokker Dr.1 / Sopwith Triplane»)
+PROVVISORI = {}
 # Disponibilita storica (mese 0 = gennaio 1917)
 DISP = {'albatros_d3': 0, 'nieuport17': 0, 'spad7': 0, 'triplane': 1, 'bristol': 3, 'se5a': 5, 'albatros_d5': 5,
         'halberstadt': 6, 'camel': 7, 'spad13': 7, 'fokker_dr1': 7, 'pfalz_d3': 7, 'nieuport28': 15, 'fokker_d7': 15,

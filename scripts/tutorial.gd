@@ -154,14 +154,9 @@ func scelta_aperta(sm: SchedaMovimento, possibili: Array) -> void:
 		var info = {}
 		consiglio = ia.scegli_manovra(io, info)
 	var c: String = consiglio.get("codice", "")
-	if sm.celle.has(c):
-		var cel = sm.celle[c]
-		cel.scelta = false
-		var tw = cel.create_tween().set_loops(4)
-		tw.tween_property(cel, "modulate", Color(1.3, 1.1, 0.6), 0.35)
-		tw.tween_property(cel, "modulate", Color.WHITE, 0.35)
+	sm.lampeggia(c)
 	if int(R.S["turno"]) == 1 and una_volta("scheda_mov"):
-		nota("Questa è la [b]Tabella-Movimento[/b] del tuo Spad VII, uguale a quella di carta. Ogni riquadro è una manovra: la freccia è dove parti, la sagoma dove arrivi e come sarai girato. Il codice, per esempio [b]3A2[/b], dice: manovra numero 3, direzione A (Avanti; S sinistra, D destra), velocità 2. La velocità è anche il carburante consumato e da un turno all'altro può cambiare al massimo di 1. Le manovre sbiadite ora non sono permesse.\n\nPer cominciare scegli [b]3A2[/b] (lampeggia): due esagoni dritto avanti. Toccala, guarda l'anteprima sulla mappa e premi [b]Conferma la manovra[/b].")
+		nota("Questa è la [b]Tabella-Movimento[/b] del tuo Spad VII, uguale a quella di carta. Ogni riquadro è una manovra, raggruppate per velocità (la colonna a sinistra: Rot, V1, V2...): la freccia è dove parti, la sagoma dove arrivi e come sarai girato. Il codice, per esempio [b]3A2[/b], dice: manovra numero 3, direzione A (Avanti; S sinistra, D destra), velocità 2. La velocità è anche il carburante consumato e da un turno all'altro può cambiare al massimo di 1. Le manovre sbiadite ora non sono permesse.\n\nPer cominciare scegli [b]3A2[/b] (lampeggia): due esagoni dritto avanti. Toccala, guarda l'anteprima sulla mappa e premi [b]Conferma la manovra[/b].")
 	elif int(R.S["turno"]) == 2 and una_volta("quota"):
 		nota("Sotto la scheda ci sono i pulsanti della [b]quota[/b]: con la [b]Cabrata[/b] sali di un livello (serve velocità 2 o più, ma non la massima, e costa 1 carburante in più), con la [b]Picchiata[/b] scendi (costa 1 in meno). Stare più in alto del nemico è un vantaggio: chi spara verso il basso ha +1.\n\nDa qui in poi l'istruttore ti fa lampeggiare la manovra che sceglierebbe un Asso. Puoi seguirla o fare di testa tua.")
 	elif io["ultima"] != "" and int(Dati.codice(io["ultima"])["n"]) in [2, 3, 4, 5] and possibili.any(func(m): return Dati.geometria(m["codice"])["acrobatica"]) and una_volta("acro"):

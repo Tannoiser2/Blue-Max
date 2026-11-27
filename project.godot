@@ -13,6 +13,7 @@ boot_splash/show_image=false
 [autoload]
 
 Dati="*res://scripts/dati.gd"
+Suoni="*res://scripts/suoni.gd"
 
 [debug]
 
