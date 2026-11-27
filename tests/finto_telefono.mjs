@@ -40,4 +40,5 @@ for (const tipo of ['fuoco', 'manovra']) {
   await tel.waitForTimeout(300);
   await tel.screenshot({ path: `/tmp/finto_${tipo}_${W}.png` });
 }
+await tel.click('button[data-tab="mappa"]'); await tel.waitForTimeout(800); await tel.screenshot({ path: `/tmp/finto_mappa_${W}.png` });
 await browser.close(); process.exit(0);

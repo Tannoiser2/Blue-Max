@@ -304,49 +304,82 @@ function disegnaManovra(cv) {
 }
 
 // piccola mappa: foto della mappa con gli aerei, la freccia della prua e la quota
+// mappa ruotata: il muso del mio aereo punta sempre in alto, con la linea di tiro davanti
 function disegnaMappa() {
   const cv = document.getElementById('mappa');
   if (!cv || !stato) return;
   const x = cv.getContext('2d');
   const W = 18.95, H = 23.3, O = [-2.75, -1.8];
-  // si inquadra la zona degli aerei in volo
   const vivi = stato.aerei.filter((a) => ['volo', 'vite', 'planata'].includes(a.stato));
-  const cen = (a) => [S3 * (a.q + a.r * 0.5) - O[0], 1.5 * a.r - O[1]];
-  let minx = W, maxx = 0, miny = H, maxy = 0;
-  for (const a of vivi) { const [cx, cy] = cen(a); minx = Math.min(minx, cx); maxx = Math.max(maxx, cx); miny = Math.min(miny, cy); maxy = Math.max(maxy, cy); }
-  if (!vivi.length) { minx = 0; maxx = W; miny = 0; maxy = H; }
-  const m = 3.2;
-  let w = Math.max(maxx - minx + 2 * m, 8), hh = Math.max(maxy - miny + 2 * m, 6);
-  const ar = cv.width / cv.height;
-  if (w / hh > ar) hh = w / ar; else w = hh * ar;
-  const sx = (minx + maxx) / 2 - w / 2, sy = (miny + maxy) / 2 - hh / 2;
-  const k = cv.width / w;
+  const cen = (q, r) => [S3 * (q + r * 0.5) - O[0], 1.5 * r - O[1]];
+  const io = mio && vivi.find((a) => a.id === mio.id);
+  let c0, rot;
+  if (io) {
+    c0 = cen(io.q, io.r);
+    rot = -(io.prua * Math.PI) / 3 - Math.PI / 2;
+  } else {
+    c0 = [W / 2, H / 2];
+    rot = 0;
+  }
+  // raggio da mostrare: tutti gli aerei vicini, almeno 4 esagoni
+  let rag = 4.5;
+  for (const a of vivi) { const [cx, cy] = cen(a.q, a.r); rag = Math.max(rag, Math.hypot(cx - c0[0], cy - c0[1]) + 1.6); }
+  rag = Math.min(rag, 12);
+  const k = Math.min(cv.width, cv.height) / (2 * rag);
+  // il mio aereo un po' sotto il centro: si vede di più quello che ha davanti
+  const ox = cv.width / 2, oy = cv.height * (io ? 0.62 : 0.5);
+  const schermo = (wx, wy) => {
+    const dx = wx - c0[0], dy = wy - c0[1];
+    return [ox + k * (dx * Math.cos(rot) - dy * Math.sin(rot)), oy + k * (dx * Math.sin(rot) + dy * Math.cos(rot))];
+  };
+  x.setTransform(1, 0, 0, 1, 0, 0);
   x.fillStyle = '#3b2f22';
   x.fillRect(0, 0, cv.width, cv.height);
-  if (mappaImg.complete && mappaImg.naturalWidth) {
-    const ik = mappaImg.naturalWidth / W;
-    x.drawImage(mappaImg, sx * ik, sy * ik, w * ik, hh * ik, 0, 0, cv.width, cv.height);
+  x.save();
+  x.translate(ox, oy); x.rotate(rot); x.scale(k, k); x.translate(-c0[0], -c0[1]);
+  if (mappaImg.complete && mappaImg.naturalWidth) x.drawImage(mappaImg, 0, 0, W, H);
+  // linea di tiro: 3 esagoni dritti davanti al muso
+  if (io) {
+    const D = [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]][io.prua];
+    x.fillStyle = 'rgba(200,40,30,0.28)';
+    x.strokeStyle = 'rgba(200,40,30,0.9)';
+    x.lineWidth = 0.07;
+    for (let n = 1; n <= 3; n++) {
+      const [hx, hy] = cen(io.q + D[0] * n, io.r + D[1] * n);
+      x.beginPath();
+      for (let v = 0; v < 6; v++) { const t = Math.PI / 6 + (v * Math.PI) / 3; x.lineTo(hx + Math.cos(t) * 0.95, hy + Math.sin(t) * 0.95); }
+      x.closePath(); x.fill(); x.stroke();
+    }
   }
+  x.restore();
   for (const a of vivi) {
-    const [cx, cy] = cen(a);
-    const px = (cx - sx) * k, py = (cy - sy) * k;
+    const [cx, cy] = cen(a.q, a.r);
+    const [px, py] = schermo(cx, cy);
     const col = a.lato === 'G' ? '#b8322a' : '#2e6aa8';
     x.save();
     x.translate(px, py);
-    x.rotate((a.prua * Math.PI) / 3);
+    x.rotate((a.prua * Math.PI) / 3 + rot);
     x.fillStyle = col;
-    x.strokeStyle = a === mio || (mio && a.id === mio.id) ? '#c9a23c' : '#fff';
+    x.strokeStyle = io && a.id === io.id ? '#c9a23c' : '#fff';
     x.lineWidth = 3;
     x.beginPath(); x.moveTo(k * 0.55, 0); x.lineTo(-k * 0.4, -k * 0.35); x.lineTo(-k * 0.25, 0); x.lineTo(-k * 0.4, k * 0.35); x.closePath();
     x.fill(); x.stroke();
     x.restore();
-    x.font = `600 ${Math.round(Math.max(14, cv.width / 34))}px Oswald`;
+    x.font = `600 ${Math.round(Math.max(14, cv.width / 30))}px Oswald`;
     x.fillStyle = '#fff';
     x.strokeStyle = '#000';
     x.lineWidth = 4;
+    x.textAlign = 'center';
     const t = `${a.pilota.split(' ').slice(-1)[0]} ${['BB', 'B', 'M', 'A', 'MA'][a.quota]}`;
-    x.strokeText(t, px - 30, py - k * 0.55);
-    x.fillText(t, px - 30, py - k * 0.55);
+    x.strokeText(t, px, py - k * 0.6);
+    x.fillText(t, px, py - k * 0.6);
+  }
+  if (io) {
+    x.font = `600 ${Math.round(Math.max(13, cv.width / 34))}px Oswald`;
+    x.textAlign = 'left';
+    x.fillStyle = '#f3ead6'; x.strokeStyle = '#000'; x.lineWidth = 4;
+    const nota = 'Il tuo muso punta in alto. In rosso la linea di tiro.';
+    x.strokeText(nota, 10, cv.height - 12); x.fillText(nota, 10, cv.height - 12);
   }
 }
 
