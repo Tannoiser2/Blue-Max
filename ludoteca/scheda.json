@@ -1,10 +1,13 @@
 {
   "titolo": "Blue Max",
   "sottotitolo": "duelli aerei nel cielo di Francia",
-  "descrizione": "Il classico GDW dei combattimenti aerei della Prima Guerra Mondiale (1917-1918): manovre segrete e simultanee sulle Tabelle-Movimento originali, tallonamento, quota, raffiche, pedine-danno, avvitamenti e incendi. Diciotto aerei in 3D sulla mappa fotografata del Fronte Occidentale, effetti di fumo, fuoco e mitragliatrici, replay finale. Tutorial a turni guidati, cinque scenari storici con gli Assi (Richthofen, Guynemer, Udet), schermaglia libera fino a 12 aerei contro il computer, a turno sullo stesso schermo o pilotando dal telefono con il QR code, e campagna 1917-1918 con esperienza, abilità e salvataggi su Firebase.",
+  "descrizione": "Il classico GDW dei combattimenti aerei della Prima Guerra Mondiale (1915-1918): manovre segrete e simultanee sulle Tabelle-Movimento originali, tallonamento, quota, raffiche, pedine-danno, avvitamenti e incendi. Quarantadue aerei (con le schede aggiuntive) in 3D sulla mappa fotografata, cielo con nuvole volumetriche, effetti di fumo, fuoco e mitragliatrici, miniatura danneggiata e replay finale continuo. Tutorial a turni guidati, quindici scenari storici illustrati con gli Assi, generatore di scenari per epoca e numero di aerei, regole opzionali e la regola della casa sulle nuvole. Contro il computer, sullo stesso schermo, online con il gioco completo da un altro computer o pilotando dal telefono con il QR code, e campagna salvata online.",
   "online": true,
   "sezione": "conversione",
   "ordine": 47,
   "bgg": 508,
-  "generi": ["Wargame", "Storici"]
+  "generi": [
+    "Wargame",
+    "Storici"
+  ]
 }

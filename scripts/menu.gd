@@ -58,6 +58,20 @@ func _colonna(larg := 560) -> VBoxContainer:
 	sc.custom_minimum_size.y = minf(940, get_viewport_rect().size.y - 120)
 	return v
 
+## Pagina a tutto schermo, senza scorrimento
+func _pagina_piena() -> VBoxContainer:
+	var cc = MarginContainer.new()
+	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for k in ["left", "right", "top", "bottom"]:
+		cc.add_theme_constant_override("margin_" + k, 24)
+	contenuto.add_child(cc)
+	var p = Tema.pannello(Color(0.93, 0.89, 0.79, 0.96), Tema.SEPPIA, 16)
+	cc.add_child(p)
+	var v = VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	p.add_child(v)
+	return v
+
 func principale_menu() -> void:
 	_pulisci()
 	var cc = MarginContainer.new()
@@ -92,7 +106,7 @@ func principale_menu() -> void:
 	v.add_child(_voce("Generatore di scenari", "scegli epoca, aerei per parte e regole: lo scenario è servito", generatore))
 	v.add_child(_voce("Schermaglia libera", "componi tu le squadriglie, aereo per aereo", schermaglia))
 	v.add_child(_voce("Campagna", "da novellino a Asso, missione dopo missione", _campagna))
-	v.add_child(_voce("Entra in una partita online", "con il codice della stanza di un amico", entra_online))
+	v.add_child(_voce("Online e telefoni", "crea una partita per gli amici o entra nella loro", online))
 	var hb = HBoxContainer.new()
 	v.add_child(hb)
 	for b in [["Regolamento", func(): add_child(Regolamento.new())], ["Crediti", crediti]]:
@@ -182,7 +196,7 @@ func _carta(img: String, titolo: String, sopra: String, testo: String, larg: flo
 	tex.texture = t
 	tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	tex.custom_minimum_size = Vector2(larg - 16, (larg - 16) * 0.62)
+	tex.custom_minimum_size = Vector2(larg - 16, minf((larg - 16) * 0.62, alta * 0.5) if alta > 0 else (larg - 16) * 0.62)
 	tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if not scelta and alta > 0:
 		tex.modulate = Color(0.8, 0.8, 0.8)
@@ -196,6 +210,11 @@ func _carta(img: String, titolo: String, sopra: String, testo: String, larg: flo
 	v.add_child(lt)
 	if testo != "":
 		var lx = Tema.etichetta(testo, 15, Tema.SEPPIA, "testo", int(larg - 16))
+		lx.max_lines_visible = 4 if alta <= 0 else maxi(1, int((alta * 0.5 - 95) / 19))
+		lx.clip_text = false
+		lx.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		lx.tooltip_text = testo
+		lx.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		lx.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		v.add_child(lx)
 	if scelta:
@@ -235,37 +254,75 @@ func ritorno_campagna(camp: Dictionary, R: Regole, turni: int) -> void:
 var scenario_scelto = ""
 var giochi_con = 0
 
+const SCELTE_CHI = ["Io con gli Alleati", "Io con i Tedeschi", "Due giocatori sullo stesso schermo",
+	"Io con gli Alleati, amici online o telefono con i Tedeschi", "Io con i Tedeschi, amici online o telefono con gli Alleati",
+	"Tutti online o con il telefono (questo schermo fa da tabellone)", "Guardo il computer"]
+
+func _scelta_chi(attuale: int, cb: Callable) -> OptionButton:
+	var ob = OptionButton.new()
+	for t in SCELTE_CHI:
+		ob.add_item(t)
+	ob.selected = attuale
+	ob.item_selected.connect(cb)
+	ob.custom_minimum_size.x = 560
+	ob.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	return ob
+
+## Assegna i piloti secondo la scelta «Giochi con»: tu, computer o online/telefono
+func _controlli(chi: int) -> Dictionary:
+	match chi:
+		0: return {"A": "umano", "G": "ia"}
+		1: return {"A": "ia", "G": "umano"}
+		2: return {"A": "umano", "G": "umano"}
+		3: return {"A": "umano", "G": "telefono"}
+		4: return {"A": "telefono", "G": "umano"}
+		5: return {"A": "telefono", "G": "telefono"}
+	return {"A": "ia", "G": "ia"}
+
+func _parti(R: Regole, chi: int) -> void:
+	for a in R.S["aerei"]:
+		a["controllo"] = _controlli(chi)[a["lato"]]
+		if chi == 2:
+			a["giocatore"] = "Alleati" if a["lato"] == "A" else "Tedeschi"
+	if R.S["aerei"].any(func(x): return x["controllo"] == "telefono"):
+		telefoni(R)
+		return
+	principale.avvia_partita(R, {"livelli": {"G": opz_ia, "A": opz_ia}, "veloce": veloce})
+
 func scenari() -> void:
 	_pulisci()
-	var v = _colonna(1500)
-	v.add_child(Tema.titolo("Scenari storici", 52, Tema.ROSSO))
+	var v = _pagina_piena()
 	var h = HBoxContainer.new()
+	h.add_theme_constant_override("separation", 14)
 	v.add_child(h)
+	var t = Tema.titolo("Scenari storici", 44, Tema.ROSSO)
+	t.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	h.add_child(t)
 	h.add_child(_etichetta_fissa("Giochi con:"))
-	var ob = OptionButton.new()
-	for t in ["gli Alleati", "i Tedeschi", "entrambi (due giocatori)", "nessuno: guardo il computer"]:
-		ob.add_item(t)
-	ob.selected = giochi_con
-	ob.item_selected.connect(func(k): giochi_con = k)
-	ob.custom_minimum_size.x = 340
-	h.add_child(ob)
-	h.add_child(_etichetta_fissa("Avversario:"))
+	h.add_child(_scelta_chi(giochi_con, func(k): giochi_con = k))
+	h.add_child(_etichetta_fissa("Computer:"))
 	h.add_child(_scelta_ia())
-	v.add_child(Tema.etichetta("Tocca uno scenario per decollare.", 18, Tema.SEPPIA, "testo"))
-	var g = HFlowContainer.new()
-	g.add_theme_constant_override("h_separation", 12)
-	g.add_theme_constant_override("v_separation", 12)
-	v.add_child(g)
+	var ind = Tema.bottone("Indietro", principale_menu, 20)
+	h.add_child(ind)
 	var tutti = []
 	for x in Scenari.ELENCO:
 		tutti.append(x)
 	for x in Scenari.STORICI:
 		tutti.append(x)
+	var vp = get_viewport_rect().size
+	var col = 5
+	var righe = int(ceil(tutti.size() / float(col)))
+	var larg = (vp.x - 48 - 32 - (col - 1) * 10) / col
+	var alta = (vp.y - 48 - 32 - 70 - (righe - 1) * 10) / righe
+	var g = GridContainer.new()
+	g.columns = col
+	g.add_theme_constant_override("h_separation", 10)
+	g.add_theme_constant_override("v_separation", 10)
+	v.add_child(g)
 	for x in tutti:
 		var id: String = x["id"]
 		var img = "res://assets/img/scenari/s%d.webp" % int(x.get("img", 1))
-		g.add_child(_carta(img, x["titolo"], x.get("data", ""), x["testo"], 352, func(): _gioca_scenario(id), false, 470))
-	v.add_child(Tema.bottone("Indietro", principale_menu, 22))
+		g.add_child(_carta(img, x["titolo"], x.get("data", ""), x["testo"], larg, func(): _gioca_scenario(id), false, alta))
 
 func _etichetta_fissa(t: String) -> Label:
 	var l = Tema.etichetta(t, 22, Tema.INCHIOSTRO, "grassetto")
@@ -273,18 +330,8 @@ func _etichetta_fissa(t: String) -> Label:
 	return l
 
 func _gioca_scenario(id: String) -> void:
-	var c = {"G": "ia", "A": "ia"}
-	match giochi_con:
-		0: c["A"] = "umano"
-		1: c["G"] = "umano"
-		2:
-			c["A"] = "umano"
-			c["G"] = "umano"
-	var R = Scenari.costruisci(id, c, {"seme": randi(), "togli_pilota_ucciso": true})
-	for a in R.S["aerei"]:
-		if a["controllo"] == "umano" and giochi_con == 2:
-			a["giocatore"] = "Alleati" if a["lato"] == "A" else "Tedeschi"
-	principale.avvia_partita(R, {"livelli": {"G": opz_ia, "A": opz_ia}, "veloce": veloce})
+	var R = Scenari.costruisci(id, {"G": "ia", "A": "ia"}, {"seme": randi(), "togli_pilota_ucciso": true})
+	_parti(R, giochi_con)
 
 func _scelta_ia() -> OptionButton:
 	var oi = OptionButton.new()
@@ -460,36 +507,47 @@ const OPZIONI = [
 ]
 
 ## Le regole opzionali come carte illustrate: un tocco le attiva o le spegne
-func _carte_opzioni(ridisegna: Callable) -> Control:
+func _carte_opzioni(ridisegna: Callable, larg := 0.0, alta := 0.0) -> Control:
 	var v = VBoxContainer.new()
-	v.add_child(Tema.etichetta("Regole opzionali", 28, Tema.INCHIOSTRO, "titolo"))
-	var g = HFlowContainer.new()
-	g.add_theme_constant_override("h_separation", 10)
-	g.add_theme_constant_override("v_separation", 10)
+	v.add_theme_constant_override("separation", 4)
+	v.add_child(Tema.etichetta("Regole opzionali", 22, Tema.INCHIOSTRO, "titolo"))
+	var compatto = larg > 0
+	var lc = 220.0
+	var ac = 300.0
+	if compatto:
+		lc = (larg - 3 * 8) / 4
+		ac = (alta - 130) / 2
+	var g = GridContainer.new()
+	g.columns = 4 if compatto else 8
+	g.add_theme_constant_override("h_separation", 8)
+	g.add_theme_constant_override("v_separation", 8)
 	v.add_child(g)
 	for o in OPZIONI:
 		var k: String = o[0]
-		g.add_child(_carta("res://assets/img/opzioni/o%d.webp" % int(o[3]), o[1], "", o[2], 220, func():
+		g.add_child(_carta("res://assets/img/opzioni/o%d.webp" % int(o[3]), o[1], "", o[2], lc, func():
 			opzioni_partita[k] = not opzioni_partita.get(k, false)
-			ridisegna.call(), opzioni_partita.get(k, false), 300))
+			ridisegna.call(), opzioni_partita.get(k, false), ac))
 	var hn = HBoxContainer.new()
 	v.add_child(hn)
-	var ln = Tema.etichetta("Nuvole (regola della casa)", 22, Tema.INCHIOSTRO, "grassetto")
+	var ln = Tema.etichetta("Nuvole (regola della casa)", 20, Tema.INCHIOSTRO, "grassetto")
 	ln.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	ln.custom_minimum_size.x = 290
+	ln.custom_minimum_size.x = 270
+	ln.tooltip_text = "Chi è dentro una nuvola (stesso esagono e stessa quota) prende -2 al tiro contro di lui, spara con -1 e non può essere tallonato."
+	ln.mouse_filter = Control.MOUSE_FILTER_PASS
 	hn.add_child(ln)
 	for q in [[0, "Nessuna"], [4, "Poche"], [9, "Molte"], [16, "Tante"]]:
-		var b = Tema.bottone(q[1], func(): opzioni_partita["nuvole"] = q[0]; ridisegna.call(), 20, 120)
+		var b = Tema.bottone(q[1], func(): opzioni_partita["nuvole"] = q[0]; ridisegna.call(), 19, 110)
 		if int(opzioni_partita.get("nuvole", 0)) == q[0]:
 			b.add_theme_stylebox_override("normal", Tema.box(Tema.ORO, Tema.INCHIOSTRO, 2, 6, 8))
 			b.add_theme_color_override("font_color", Tema.INCHIOSTRO)
 		hn.add_child(b)
-	v.add_child(Tema.etichetta("Banchi di nuvole a quote diverse: chi è dentro una nuvola (stesso esagono e stessa quota) prende -2 al tiro contro di lui, spara con -1 e non può essere tallonato.", 16, Tema.SEPPIA, "testo", 1200))
 	var cv = CheckBox.new()
 	cv.text = "Animazioni veloci"
 	cv.button_pressed = veloce
 	cv.toggled.connect(func(x): veloce = x)
-	v.add_child(cv)
+	hn.add_child(cv)
+	if not compatto:
+		v.add_child(Tema.etichetta("Nuvole: chi è dentro una nuvola (stesso esagono e stessa quota) prende -2 al tiro contro di lui, spara con -1 e non può essere tallonato.", 16, Tema.SEPPIA, "testo", 1200))
 	return v
 
 # --------------------------------------------------------------------------- generatore di scenari
@@ -497,83 +555,95 @@ var gen = {"mese": 7, "n_g": 2, "n_a": 2, "situazione": "incontro", "chi": 0, "a
 
 func generatore() -> void:
 	_pulisci()
-	var v = _colonna(1500)
-	v.add_child(Tema.titolo("Generatore di scenari", 52, Tema.ROSSO))
-	v.add_child(Tema.etichetta("Scegli l'epoca, quanti aerei per parte e la situazione: il generatore sceglie aerei storicamente in servizio in quel mese, piloti (novellini, veterani e qualche Asso), quote e posizioni.", 19, Tema.SEPPIA, "testo", 1440))
+	var v = _pagina_piena()
+	var vp = get_viewport_rect().size
+	var testa = HBoxContainer.new()
+	v.add_child(testa)
+	var t = Tema.titolo("Generatore di scenari", 44, Tema.ROSSO)
+	testa.add_child(t)
+	testa.add_child(Tema.bottone("Indietro", principale_menu, 20))
+	var corpo = HBoxContainer.new()
+	corpo.add_theme_constant_override("separation", 18)
+	corpo.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(corpo)
+	# colonna sinistra: impostazioni e anteprima
+	var sx = VBoxContainer.new()
+	sx.custom_minimum_size.x = 640
+	corpo.add_child(sx)
 	var g = GridContainer.new()
 	g.columns = 2
-	g.add_theme_constant_override("h_separation", 16)
-	v.add_child(g)
+	g.add_theme_constant_override("h_separation", 12)
+	sx.add_child(g)
 	g.add_child(_etichetta_fissa("Epoca"))
 	var he = HBoxContainer.new()
 	g.add_child(he)
-	var lm = Tema.etichetta(Scenari.nome_mese(gen["mese"]), 24, Tema.ROSSO, "titolo")
-	lm.custom_minimum_size.x = 230
-	lm.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	var lm = Tema.etichetta(Scenari.nome_mese(gen["mese"]), 22, Tema.ROSSO, "titolo")
+	lm.custom_minimum_size.x = 200
 	var sl = HSlider.new()
 	sl.min_value = -12
 	sl.max_value = 22
 	sl.value = gen["mese"]
-	sl.custom_minimum_size = Vector2(560, 36)
-	sl.value_changed.connect(func(x): gen["mese"] = int(x); lm.text = Scenari.nome_mese(int(x)); gen["anteprima"] = {})
+	sl.custom_minimum_size = Vector2(300, 34)
+	sl.drag_ended.connect(func(_c): gen["anteprima"] = {}; generatore())
+	sl.value_changed.connect(func(x): gen["mese"] = int(x); lm.text = Scenari.nome_mese(int(x)))
 	he.add_child(sl)
 	he.add_child(lm)
-	for lato in [["n_g", "Aerei tedeschi"], ["n_a", "Aerei alleati"]]:
+	for lato in [["n_g", "Tedeschi"], ["n_a", "Alleati"]]:
 		g.add_child(_etichetta_fissa(lato[1]))
 		var hn = HBoxContainer.new()
 		g.add_child(hn)
 		for n in range(1, 7):
-			var b = Tema.bottone(str(n), func(): gen[lato[0]] = n; gen["anteprima"] = {}; generatore(), 22, 56)
+			var b = Tema.bottone(str(n), func(): gen[lato[0]] = n; gen["anteprima"] = {}; generatore(), 20, 52)
 			if gen[lato[0]] == n:
 				b.add_theme_stylebox_override("normal", Tema.box(Tema.ORO, Tema.INCHIOSTRO, 2, 6, 8))
 				b.add_theme_color_override("font_color", Tema.INCHIOSTRO)
 			hn.add_child(b)
 	g.add_child(_etichetta_fissa("Giochi con"))
-	var ob = OptionButton.new()
-	for t in ["gli Alleati", "i Tedeschi", "entrambi (due giocatori)", "nessuno: guardo il computer"]:
-		ob.add_item(t)
-	ob.selected = gen["chi"]
-	ob.item_selected.connect(func(k): gen["chi"] = k)
-	ob.custom_minimum_size.x = 340
-	ob.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	g.add_child(ob)
-	g.add_child(_etichetta_fissa("Avversario"))
+	g.add_child(_scelta_chi(gen["chi"], func(k): gen["chi"] = k))
+	g.add_child(_etichetta_fissa("Computer"))
 	var oi = _scelta_ia()
 	oi.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	g.add_child(oi)
-	v.add_child(Tema.etichetta("Situazione", 28, Tema.INCHIOSTRO, "titolo"))
-	var gs = HFlowContainer.new()
-	gs.add_theme_constant_override("h_separation", 10)
-	v.add_child(gs)
-	for k in Scenari.SITUAZIONI:
-		var x: Dictionary = Scenari.SITUAZIONI[k]
-		gs.add_child(_carta("res://assets/img/scenari/s%d.webp" % int(x["img"]), x["nome"], "", x["testo"], 270, func(): gen["situazione"] = k; gen["anteprima"] = {}; generatore(), gen["situazione"] == k, 330, "SCELTA"))
-	v.add_child(_carte_opzioni(generatore))
-	# anteprima dello scenario confezionato
 	if gen["anteprima"].is_empty():
 		var rn = RandomNumberGenerator.new()
 		rn.randomize()
 		gen["anteprima"] = Scenari.genera(gen["mese"], gen["n_g"], gen["n_a"], gen["situazione"], rn)
 	var an: Dictionary = gen["anteprima"]
-	var p = Tema.pannello(Color("f7efdb"), Tema.ROSSO, 14)
-	v.add_child(p)
-	var vp = VBoxContainer.new()
-	p.add_child(vp)
-	vp.add_child(Tema.titolo("%s - %s" % [Scenari.SITUAZIONI[gen["situazione"]]["nome"], Scenari.nome_mese(gen["mese"])], 30, Tema.ROSSO))
+	var p = Tema.pannello(Color("f7efdb"), Tema.ROSSO, 10)
+	p.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sx.add_child(p)
+	var vpn = VBoxContainer.new()
+	vpn.add_theme_constant_override("separation", 2)
+	p.add_child(vpn)
+	vpn.add_child(Tema.titolo("%s - %s" % [Scenari.SITUAZIONI[gen["situazione"]]["nome"], Scenari.nome_mese(gen["mese"])], 24, Tema.ROSSO))
 	for lato in ["G", "A"]:
-		var righe = []
+		vpn.add_child(Tema.etichetta("Tedeschi" if lato == "G" else "Alleati", 18, Tema.colore_lato(lato), "grassetto"))
 		for x in an["aerei"]:
 			if Dati.NAZIONI[x["nazione"]]["lato"] != lato:
 				continue
 			var pil: Dictionary = x["pilota"]
 			var esp = "Asso" if int(pil.get("abbattimenti", 0)) >= 5 else ("novellino" if pil.get("novellino", false) else "veterano")
-			righe.append("%s, %s (%s), quota %s" % [pil["nome"], Dati.aerei[x["tipo"]]["nome"], esp, Dati.QUOTE[int(x["quota"])]])
-		vp.add_child(Tema.etichetta(("Tedeschi: " if lato == "G" else "Alleati: ") + "; ".join(righe), 19, Tema.colore_lato(lato), "grassetto", 1400))
+			vpn.add_child(Tema.etichetta("%s - %s, %s, quota %s" % [Dati.aerei[x["tipo"]]["nome"], pil["nome"], esp, Dati.QUOTE[int(x["quota"])]], 16, Tema.INCHIOSTRO, "testo"))
 	var hb = HBoxContainer.new()
-	v.add_child(hb)
-	hb.add_child(Tema.bottone("Indietro", principale_menu, 22))
+	sx.add_child(hb)
 	hb.add_child(Tema.bottone("Rigenera", func(): gen["anteprima"] = {}; generatore(), 22))
-	hb.add_child(Tema.bottone("Decolla!", _avvia_generato, 28, 260))
+	var dec = Tema.bottone("Decolla!", _avvia_generato, 28, 260)
+	hb.add_child(dec)
+	# colonna destra: situazioni e regole opzionali
+	var dx = VBoxContainer.new()
+	dx.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	corpo.add_child(dx)
+	var largd = vp.x - 48 - 32 - 640 - 18
+	var altd = vp.y - 48 - 32 - 60
+	dx.add_child(Tema.etichetta("Situazione", 22, Tema.INCHIOSTRO, "titolo"))
+	var gs = HBoxContainer.new()
+	gs.add_theme_constant_override("separation", 8)
+	dx.add_child(gs)
+	var ls = (largd - 4 * 8) / 5
+	for k in Scenari.SITUAZIONI:
+		var x: Dictionary = Scenari.SITUAZIONI[k]
+		gs.add_child(_carta("res://assets/img/scenari/s%d.webp" % int(x["img"]), x["nome"], "", "", ls, func(): gen["situazione"] = k; gen["anteprima"] = {}; generatore(), gen["situazione"] == k, altd * 0.3, "SCELTA"))
+	dx.add_child(_carte_opzioni(generatore, largd, altd * 0.62))
 
 func _avvia_generato() -> void:
 	var an: Dictionary = gen["anteprima"]
@@ -590,7 +660,7 @@ func _avvia_generato() -> void:
 	opz["seme"] = randi()
 	var R = Scenari.schermaglia(lista, opz, an["vicino"])
 	R.S["scenario"] = "generato"
-	principale.avvia_partita(R, {"livelli": {"G": opz_ia, "A": opz_ia}, "veloce": veloce})
+	_parti(R, gen["chi"])
 
 # --------------------------------------------------------------------------- telefoni
 func telefoni(R: Regole) -> void:
@@ -668,6 +738,22 @@ func telefoni(R: Regole) -> void:
 					a["giocatore"] = giocatori.get(u, "")
 		rete.evento.disconnect(ev)
 		principale.avvia_partita(R, {"livelli": {"G": opz_ia, "A": opz_ia}, "veloce": veloce}), 28, 240))
+
+# --------------------------------------------------------------------------- pagina online
+func online() -> void:
+	_pulisci()
+	var v = _colonna(1200)
+	v.add_child(Tema.titolo("Online e telefoni", 52, Tema.ROSSO))
+	v.add_child(Tema.etichetta("Si gioca a distanza in due modi, anche insieme: con il gioco completo su un altro computer o iPad, oppure dal telefono (la «cloche»: manovre e raffiche in segreto, con una piccola mappa). Chi crea la partita fa da tabellone: vede il cielo in 3D e un QR code con il codice della stanza.", 20, Tema.SEPPIA, "testo", 1140))
+	var h = HBoxContainer.new()
+	h.add_theme_constant_override("separation", 16)
+	v.add_child(h)
+	h.add_child(_carta("res://assets/img/scenari/s9.webp", "Crea una partita", "Ospiti tu", "Scegli lo scenario nel generatore: in «Giochi con» indica chi entra da fuori (amici online o telefoni). Poi compare il QR code con il codice della stanza.", 370,
+		func(): gen["chi"] = 3; generatore(), false, 470))
+	h.add_child(_carta("res://assets/img/scenari/s2.webp", "Entra con il gioco completo", "Da un altro computer o iPad", "Scrivi il codice di 4 lettere che vedi sullo schermo di chi ospita: giochi con il tuo aereo in 3D.", 370, entra_online, false, 470))
+	h.add_child(_carta("res://assets/img/scenari/s7.webp", "Gioca dal telefono", "Smartphone", "Inquadra con la fotocamera il QR code sullo schermo di chi ospita, scrivi il tuo nome e pilota dal telefono. Senza QR: apri la pagina «telefono.html» del gioco e scrivi il codice.", 370, func(): pass, false, 470))
+	v.add_child(Tema.etichetta("Anche gli scenari storici e la schermaglia libera (aereo per aereo: «Online o telefono») possono avere piloti da fuori.", 18, Tema.SEPPIA, "testo", 1140))
+	v.add_child(Tema.bottone("Indietro", principale_menu, 22))
 
 # --------------------------------------------------------------------------- ospite online
 func entra_online() -> void:

@@ -21,6 +21,9 @@ func _ready() -> void:
 			m.menu.generatore()
 			await get_tree().create_timer(0.8).timeout
 			await foto("generatore")
+			m.menu.online()
+			await get_tree().create_timer(0.8).timeout
+			await foto("online")
 			m.menu.crediti()
 			await get_tree().create_timer(0.5).timeout
 			await foto("crediti")
