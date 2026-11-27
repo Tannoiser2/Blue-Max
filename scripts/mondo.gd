@@ -60,7 +60,6 @@ func _ready() -> void:
 	perno_dest = perno
 	segni = Node3D.new()
 	add_child(segni)
-	_nuvole()
 	effetti = Node3D.new()
 	add_child(effetti)
 	_aggiorna_camera(true)
@@ -311,14 +310,19 @@ func crea_nuvole() -> void:
 	for nv in R.S.get("nuvole", []):
 		var mat := ShaderMaterial.new()
 		mat.shader = sh
-		mat.set_shader_parameter("densita", 0.8)
+		mat.set_shader_parameter("densita", 0.42)
 		var h := altezza(int(nv["quota"]))
+		# contorno dell'esagono alla quota della nuvola e la sua ombra sulla mappa
+		var bordo := _contorni_esagoni(nv["celle"], h, 0.045, Color(1, 1, 1, 0.85))
+		nodo_nuvole.add_child(bordo)
+		nodo_nuvole.add_child(_contorni_esagoni(nv["celle"], 0.02, 0.035, Color(0.1, 0.16, 0.3, 0.6)))
+		nodo_nuvole.add_child(_contorni_esagoni(nv["celle"], 0.02, 0.0, Color(0.1, 0.16, 0.3, 0.16), true))
 		for c in nv["celle"]:
 			var base := mondo_da_cella(Vector2i(int(c[0]), int(c[1])))
 			for k in 6:
 				var sf := MeshInstance3D.new()
 				var sm := SphereMesh.new()
-				var r := rn.randf_range(0.45, 0.8)
+				var r := rn.randf_range(0.4, 0.62)
 				sm.radius = r
 				sm.height = r * 1.3
 				sm.radial_segments = 16
@@ -326,8 +330,43 @@ func crea_nuvole() -> void:
 				sf.mesh = sm
 				sf.material_override = mat
 				sf.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-				sf.position = base + Vector3(rn.randf_range(-0.55, 0.55), h + rn.randf_range(-0.18, 0.15), rn.randf_range(-0.55, 0.55))
+				var ang := rn.randf() * TAU
+				var dist := rn.randf_range(0.0, 0.38)
+				sf.position = base + Vector3(cos(ang) * dist, h + rn.randf_range(-0.15, 0.12), sin(ang) * dist)
 				nodo_nuvole.add_child(sf)
+
+## Bordi netti degli esagoni (nastri sottili) per capire dove sta una nuvola; con ombra=true anche il riempimento
+func _contorni_esagoni(celle: Array, h: float, largo: float, colore: Color, ombra := false) -> MeshInstance3D:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for c in celle:
+		var b := mondo_da_cella(Vector2i(int(c[0]), int(c[1])))
+		var ang = []
+		for k in 7:
+			var t := deg_to_rad(30.0 + 60.0 * k)
+			ang.append(Vector3(cos(t), 0, sin(t)))
+		for k in (0 if ombra else 6):
+			var e1: Vector3 = ang[k] * 0.97
+			var e2: Vector3 = ang[k + 1] * 0.97
+			var i1: Vector3 = ang[k] * (0.97 - largo * 2.0)
+			var i2: Vector3 = ang[k + 1] * (0.97 - largo * 2.0)
+			for v in [e1, e2, i2, e1, i2, i1]:
+				st.add_vertex(b + v + Vector3(0, h, 0))
+		if ombra:
+			for k in 6:
+				for v in [Vector3.ZERO, ang[k + 1] * 0.9, ang[k] * 0.9]:
+					st.add_vertex(b + v + Vector3(0, h - 0.005, 0))
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.albedo_color = colore
+	m.no_depth_test = false
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
 
 func crea_aerei() -> void:
 	crea_nuvole()
