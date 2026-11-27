@@ -1,0 +1,268 @@
+{
+ "rosse": [
+  {
+   "coda": 4
+  },
+  {
+   "ala": 8
+  },
+  {
+   "spec": "serbatoio",
+   "carb": 6,
+   "fusoliera": 3
+  },
+  {
+   "fusoliera": 7
+  },
+  {
+   "spec": "esplosione"
+  },
+  {
+   "fusoliera": 8
+  },
+  {
+   "spec": "timone",
+   "dir": "D",
+   "turni": 3,
+   "coda": 1
+  },
+  {
+   "spec": "timone",
+   "dir": "D",
+   "turni": 2,
+   "coda": 1
+  },
+  {
+   "fusoliera": 7
+  },
+  {
+   "ala": 6
+  },
+  {
+   "fusoliera": 6
+  },
+  {
+   "spec": "oss_ucciso",
+   "fusoliera": 4
+  },
+  {
+   "motore": 3
+  },
+  {
+   "fusoliera": 5
+  },
+  {
+   "ala": 5
+  },
+  {
+   "fusoliera": 8
+  },
+  {
+   "ala": 6
+  },
+  {
+   "spec": "oss_ucciso",
+   "fusoliera": 4
+  },
+  {
+   "motore": 4
+  },
+  {
+   "motore": 4
+  },
+  {
+   "spec": "pilota_ucciso"
+  },
+  {
+   "spec": "pilota_ucciso"
+  },
+  {
+   "spec": "serbatoio",
+   "carb": 3,
+   "fusoliera": 2
+  },
+  {
+   "ala": 5
+  },
+  {
+   "spec": "timone",
+   "dir": "S",
+   "turni": 2,
+   "coda": 1
+  },
+  {
+   "fusoliera": 6
+  },
+  {
+   "coda": 3
+  },
+  {
+   "coda": 4
+  },
+  {
+   "fusoliera": 5
+  },
+  {
+   "coda": 3
+  },
+  {
+   "ala": 8
+  },
+  {
+   "spec": "fuoco"
+  },
+  {
+   "motore": 3
+  },
+  {
+   "ala": 7
+  },
+  {
+   "spec": "timone",
+   "dir": "S",
+   "turni": 3,
+   "coda": 1
+  },
+  {
+   "ala": 7
+  }
+ ],
+ "blu": [
+  {
+   "coda": 2
+  },
+  {
+   "ala": 4
+  },
+  {
+   "spec": "fumo"
+  },
+  {
+   "fusoliera": 3
+  },
+  {
+   "spec": "ferito_avanti",
+   "fusoliera": 1
+  },
+  {
+   "fusoliera": 4
+  },
+  {
+   "spec": "ala_lacerata_veloce",
+   "ala": 3
+  },
+  {
+   "spec": "montante",
+   "ala": 1
+  },
+  {
+   "fusoliera": 3
+  },
+  {
+   "ala": 2
+  },
+  {
+   "fusoliera": 2
+  },
+  {
+   "spec": "oss_ferito",
+   "turni": 3,
+   "fusoliera": 3
+  },
+  {
+   "motore": 1
+  },
+  {
+   "fusoliera": 1
+  },
+  {
+   "ala": 1
+  },
+  {
+   "fusoliera": 4
+  },
+  {
+   "ala": 2
+  },
+  {
+   "spec": "oss_ucciso",
+   "fusoliera": 3
+  },
+  {
+   "motore": 2
+  },
+  {
+   "motore": 2
+  },
+  {
+   "spec": "pilota_ucciso"
+  },
+  {
+   "spec": "ferito_lento",
+   "fusoliera": 1
+  },
+  {
+   "spec": "motore_colpito",
+   "fusoliera": 1,
+   "motore": 2
+  },
+  {
+   "ala": 1
+  },
+  {
+   "spec": "mitragliatrice",
+   "fusoliera": 3
+  },
+  {
+   "fusoliera": 2
+  },
+  {
+   "coda": 1
+  },
+  {
+   "coda": 2
+  },
+  {
+   "fusoliera": 1
+  },
+  {
+   "coda": 1
+  },
+  {
+   "ala": 4
+  },
+  {
+   "spec": "fumo"
+  },
+  {
+   "motore": 1
+  },
+  {
+   "ala": 3
+  },
+  {
+   "spec": "ala_lacerata",
+   "ala": 4
+  },
+  {
+   "ala": 3
+  }
+ ],
+ "testi": {
+  "serbatoio": "Serbatoio colpito",
+  "esplosione": "Serbatoio colpito - ESPLOSIONE!",
+  "timone": "Timone inceppato",
+  "oss_ucciso": "Osservatore ucciso",
+  "oss_ferito": "Osservatore ferito",
+  "pilota_ucciso": "Pilota ucciso",
+  "fuoco": "Fuoco",
+  "fumo": "Fumo",
+  "ferito_avanti": "Pilota ferito",
+  "ferito_lento": "Pilota ferito",
+  "ala_lacerata": "Ala lacerata",
+  "ala_lacerata_veloce": "Ala lacerata",
+  "montante": "Montante distrutto",
+  "motore_colpito": "Motore colpito",
+  "mitragliatrice": "1 mitragliatrice distrutta"
+ }
+}

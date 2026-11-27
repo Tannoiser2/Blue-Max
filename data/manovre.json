@@ -1,0 +1,366 @@
+{
+ "manovre": {
+  "1": {
+   "passi": [],
+   "prua": -1,
+   "nome": "Stallo / rotazione sul posto",
+   "acrobatica": false,
+   "non_ripetibile": true
+  },
+  "2": {
+   "passi": [
+    0
+   ],
+   "prua": 0,
+   "nome": "Avanti 1",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "3": {
+   "passi": [
+    0,
+    0
+   ],
+   "prua": 0,
+   "nome": "Avanti 2",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "4": {
+   "passi": [
+    0,
+    0,
+    0
+   ],
+   "prua": 0,
+   "nome": "Avanti 3",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "5": {
+   "passi": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "prua": 0,
+   "nome": "Avanti 4",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "6": {
+   "passi": [
+    0
+   ],
+   "prua": -1,
+   "nome": "Virata dolce a sinistra",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "7": {
+   "passi": [
+    0
+   ],
+   "prua": 1,
+   "nome": "Virata dolce a destra",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "8": {
+   "passi": [
+    -1
+   ],
+   "prua": -1,
+   "nome": "Scivolata d'ala",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "9": {
+   "passi": [
+    -1
+   ],
+   "prua": -2,
+   "nome": "Virata stretta",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "10": {
+   "passi": [
+    -1
+   ],
+   "prua": 0,
+   "nome": "Spostamento laterale",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "11": {
+   "passi": [
+    -1
+   ],
+   "prua": 3,
+   "nome": "Rovesciamento d'ala",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "12": {
+   "passi": [
+    0,
+    0
+   ],
+   "prua": -1,
+   "nome": "Virata larga 2",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "13": {
+   "passi": [
+    0,
+    0
+   ],
+   "prua": 1,
+   "nome": "Virata larga 2",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "14": {
+   "passi": [
+    0,
+    -1
+   ],
+   "prua": -1,
+   "nome": "Virata 2",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "15": {
+   "passi": [
+    0,
+    -1
+   ],
+   "prua": -2,
+   "nome": "Virata stretta 2",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "16": {
+   "passi": [
+    -1,
+    -1
+   ],
+   "prua": -1,
+   "nome": "Scivolata d'ala 2",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "17": {
+   "passi": [
+    -1,
+    -1
+   ],
+   "prua": 0,
+   "nome": "Spostamento laterale 2",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "18": {
+   "passi": [
+    0,
+    0,
+    0
+   ],
+   "prua": -1,
+   "nome": "Virata larga 3",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "19": {
+   "passi": [
+    0,
+    0,
+    0
+   ],
+   "prua": 1,
+   "nome": "Virata larga 3",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "20": {
+   "passi": [
+    0,
+    0,
+    -1
+   ],
+   "prua": -1,
+   "nome": "Virata 3",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "21": {
+   "passi": [
+    0,
+    -1,
+    -1
+   ],
+   "prua": -1,
+   "nome": "Virata ampia 3",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "22": {
+   "passi": [
+    0,
+    -1,
+    -1
+   ],
+   "prua": -2,
+   "nome": "Virata stretta 3",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "23": {
+   "passi": [
+    0,
+    -1,
+    -2
+   ],
+   "prua": -2,
+   "nome": "Virata strettissima 3",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "24": {
+   "passi": [
+    0,
+    -1,
+    -2
+   ],
+   "prua": 3,
+   "nome": "Inversione 3",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "25": {
+   "passi": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "prua": -1,
+   "nome": "Virata larga 4",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "26": {
+   "passi": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "prua": 1,
+   "nome": "Virata larga 4",
+   "acrobatica": false,
+   "non_ripetibile": false
+  },
+  "27": {
+   "passi": [],
+   "prua": 3,
+   "nome": "Inversione sul posto",
+   "acrobatica": true,
+   "non_ripetibile": false
+  },
+  "28": {
+   "passi": [],
+   "prua": -2,
+   "nome": "Rovesciamento sul posto",
+   "acrobatica": true,
+   "non_ripetibile": true
+  },
+  "29": {
+   "passi": [
+    0
+   ],
+   "prua": 3,
+   "nome": "Immelmann",
+   "acrobatica": true,
+   "non_ripetibile": false
+  },
+  "30": {
+   "passi": [
+    0
+   ],
+   "prua": -2,
+   "nome": "Immelmann virato",
+   "acrobatica": true,
+   "non_ripetibile": false
+  },
+  "31": {
+   "passi": [
+    -1
+   ],
+   "prua": 1,
+   "nome": "Foglia morta",
+   "acrobatica": true,
+   "non_ripetibile": true
+  },
+  "32": {
+   "passi": [
+    0,
+    0
+   ],
+   "prua": -2,
+   "nome": "Cabrata rovesciata",
+   "acrobatica": true,
+   "non_ripetibile": false
+  },
+  "33": {
+   "passi": [
+    0,
+    0
+   ],
+   "prua": 2,
+   "nome": "Cabrata rovesciata",
+   "acrobatica": true,
+   "non_ripetibile": false
+  },
+  "34": {
+   "passi": [
+    0,
+    -1
+   ],
+   "prua": 0,
+   "nome": "Tonneau",
+   "acrobatica": true,
+   "non_ripetibile": false
+  },
+  "35": {
+   "passi": [
+    0,
+    1
+   ],
+   "prua": 0,
+   "nome": "Tonneau",
+   "acrobatica": true,
+   "non_ripetibile": false
+  },
+  "36": {
+   "passi": [
+    -1,
+    0
+   ],
+   "prua": 1,
+   "nome": "Vite controllata",
+   "acrobatica": true,
+   "non_ripetibile": true
+  },
+  "0": {
+   "passi": [],
+   "prua": 0,
+   "nome": "Avvitamento (vite)",
+   "acrobatica": false,
+   "non_ripetibile": false
+  }
+ }
+}

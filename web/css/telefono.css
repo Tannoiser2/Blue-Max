@@ -1,0 +1,31 @@
+@font-face { font-family: 'Fell'; src: url('../font/IMFellEnglishSC-Regular.ttf'); }
+@font-face { font-family: 'Oswald'; src: url('../font/Oswald.ttf'); }
+@font-face { font-family: 'Elite'; src: url('../font/SpecialElite-Regular.ttf'); }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: #1d1914; color: #2a2118; font-family: 'Oswald', sans-serif; -webkit-tap-highlight-color: transparent; }
+#app { max-width: 640px; margin: 0 auto; padding: 10px 10px 40px; }
+h1 { font-family: 'Fell', serif; font-weight: 400; color: #c9a23c; font-size: 46px; margin: 8px 0 4px; text-align: center; }
+h2 { font-family: 'Fell', serif; font-weight: 400; color: #8e2420; font-size: 26px; margin: 4px 0 8px; }
+.carta { background: #e8dcc0; border: 2px solid #6b5437; border-radius: 10px; padding: 12px; margin: 10px 0; }
+.nota { color: #6b5437; font-size: 17px; }
+.oro { color: #c9a23c; }
+.avviso { background: #c9a23c; color: #2a2118; border-radius: 8px; padding: 8px 10px; font-size: 18px; margin: 6px 0; }
+input { font: inherit; font-size: 22px; width: 100%; padding: 10px; border: 2px solid #6b5437; border-radius: 8px; background: #fbf6ea; }
+button { font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 21px; color: #f3ead6; background: #8e2420; border: 2px solid #4a1210;
+  border-radius: 8px; padding: 10px 14px; cursor: pointer; }
+button:disabled { background: #9b8f78; border-color: #6f6553; }
+button.sel { background: #c9a23c; color: #2a2118; border-color: #2a2118; }
+button.largo { width: 100%; margin-top: 8px; font-size: 24px; }
+.riga { display: flex; gap: 6px; flex-wrap: wrap; }
+.riga button { flex: 1 1 0; min-width: 90px; }
+.manovre { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }
+.man { background: #f4ecd8; border: 1px solid #6b5437; border-radius: 6px; padding: 2px; text-align: center; color: #2a2118; font-size: 15px; }
+.man canvas { width: 66px; height: 72px; display: block; margin: 0 auto; }
+.man.no { opacity: .35; }
+.man.sel { background: #f7d77a; border: 3px solid #8e2420; }
+.gruppo { color: #6b5437; font-weight: 600; margin: 8px 0 4px; }
+#mappa { width: 100%; border-radius: 8px; border: 2px solid #6b5437; touch-action: none; display: block; }
+.barre div { font-size: 16px; }
+.barra { height: 10px; background: #fbf6ea; border: 1px solid #6b5437; border-radius: 3px; margin: 2px 0 6px; }
+.barra i { display: block; height: 100%; background: #8e2420; }
+.diario { font-family: 'Elite', monospace; font-size: 14px; color: #3b2f22; }

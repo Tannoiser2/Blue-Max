@@ -1,0 +1,48 @@
+; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="Blue Max"
+config/description="Duelli aerei nel cielo di Francia, 1917-1918"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+boot_splash/bg_color=Color(0.09, 0.08, 0.07, 1)
+boot_splash/show_image=false
+
+[autoload]
+
+Dati="*res://scripts/dati.gd"
+
+[debug]
+
+gdscript/warnings/redundant_await=0
+gdscript/warnings/untyped_declaration=0
+gdscript/warnings/inference_on_variant=0
+gdscript/warnings/integer_division=0
+gdscript/warnings/shadowed_variable=0
+gdscript/warnings/shadowed_variable_base_class=0
+gdscript/warnings/unused_parameter=0
+gdscript/warnings/unused_variable=0
+gdscript/warnings/narrowing_conversion=0
+gdscript/warnings/shadowed_global_identifier=0
+gdscript/warnings/confusable_local_declaration=0
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[input_devices]
+
+pointing/emulate_mouse_from_touch=false
+pointing/emulate_touch_from_mouse=false
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+anti_aliasing/quality/msaa_3d=2
+textures/vram_compression/import_etc2_astc=true

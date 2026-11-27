@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1d1914">
+<title>Blue Max</title>
+<link rel="icon" href="img/icona.png">
+<style>
+@font-face { font-family: 'Fell'; src: url('font/IMFellEnglishSC-Regular.ttf'); }
+@font-face { font-family: 'Oswald'; src: url('font/Oswald.ttf'); }
+html, body, #canvas { margin: 0; padding: 0; border: 0; }
+body { color: #f3ead6; background: #1d1914; overflow: hidden; touch-action: none; font-family: 'Oswald', sans-serif; }
+#canvas { display: block; width: 100vw; height: 100vh; }
+#canvas:focus { outline: none; }
+#avvio { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+  background: radial-gradient(circle at 50% 35%, #2a303c, #1d1914 75%); z-index: 10; text-align: center; padding: 20px; }
+#avvio h1 { font-family: 'Fell', serif; font-weight: 400; font-size: min(130px, 18vw); color: #e8dcc0; margin: 0; text-shadow: 0 3px 0 #8e2420, 0 8px 18px #000; }
+#avvio .box { background: rgba(29,25,20,.88); border: 3px solid #8e2420; border-radius: 22px; padding: 22px 34px; max-width: 640px; min-width: 260px; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+#avvio p { font-size: 24px; margin: 8px 0; }
+#avvio button { font-family: 'Fell', serif; font-size: 44px; color: #fff; background: #8e2420; border: 4px solid #c9a23c;
+  border-radius: 16px; padding: 10px 40px; cursor: pointer; letter-spacing: 1px; }
+#avvio button:active { transform: scale(.97); }
+#avvio .piccolo { font-size: 19px; color: #9ea7b6; }
+#avvio a { color: #c9a23c; }
+#stato { color: #e8dcc0; text-shadow: 0 2px 6px #000; font-size: 22px; min-height: 30px; }
+#stato progress { width: 360px; height: 18px; max-width: 80vw; }
+</style>
+$GODOT_HEAD_INCLUDE
+</head>
+<body>
+<canvas id="canvas">Il tuo browser non supporta i canvas.</canvas>
+<div id="avvio">
+  <h1>Blue Max</h1>
+  <div class="box">
+    <p class="piccolo">Vuoi pilotare dal telefono? <a href="telefono.html">Apri la cloche</a></p>
+  </div>
+  <div id="stato"></div>
+</div>
+<script src="js/vendor/qrcode.js"></script>
+<div id="versione" style="position:fixed;right:8px;bottom:6px;color:#5d6676;font-size:13px;z-index:11">versione __VERSIONE__</div>
+<script src="$GODOT_URL?v=__VERSIONE__"></script>
+<script type="module">
+import './js/ponte.js?v=__VERSIONE__';
+import { sbloccaAudio } from './js/suoni.js?v=__VERSIONE__';
+
+const GODOT_CONFIG = $GODOT_CONFIG;
+// ogni pubblicazione ha il suo numero: il browser non riusa la versione vecchia del gioco
+const VERSIONE = '__VERSIONE__';
+GODOT_CONFIG.mainPack = (GODOT_CONFIG.mainPack || 'index.pck') + '?v=' + VERSIONE;
+const engine = new Engine(GODOT_CONFIG);
+const stato = document.getElementById('stato');
+const q = new URLSearchParams(location.search);
+
+async function schermoAcceso() {
+  try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch (e) { /* ok */ }
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible') { try { await navigator.wakeLock.request('screen'); } catch (e) { /* ok */ } }
+  });
+}
+
+let partito = false;
+async function parti() {
+  if (partito) return;
+  partito = true;
+  const missing = Engine.getMissingFeatures({ threads: false });
+  if (missing.length) {
+    stato.textContent = 'Questo browser non riesce ad aprire il gioco: ' + missing.join(', ');
+    return;
+  }
+  stato.innerHTML = 'Avvio i motori... <progress id="pr"></progress>';
+  const pr = document.getElementById('pr');
+  try {
+    await engine.startGame({
+      onProgress(cur, tot) { if (cur > 0 && tot > 0) { pr.value = cur; pr.max = tot; } },
+    });
+    document.getElementById('avvio').remove();
+    document.getElementById('versione').remove();
+  } catch (e) {
+    console.error(e);
+    stato.textContent = 'Errore: ' + (e?.message || e);
+  }
+}
+// si parte subito; l'audio e lo schermo acceso si sbloccano al primo tocco
+const sblocca = () => { sbloccaAudio(); schermoAcceso(); };
+document.addEventListener('pointerdown', sblocca, { once: true, capture: true });
+document.addEventListener('keydown', sblocca, { once: true, capture: true });
+parti();
+</script>
+</body>
+</html>
