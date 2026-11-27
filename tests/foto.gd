@@ -36,8 +36,9 @@ func _ready() -> void:
 			var g: Gioco = m.gioco
 			var a := R.aereo(2)
 			var pos := R.manovre_possibili(a)
-			g.mondo.anteprima(a, "3A2", 0)
-			await get_tree().create_timer(0.5).timeout
+			for x in g.corpo_azione.find_children("*", "SchedaMovimento", true, false):
+				x.scelta.emit("3A2")
+			await get_tree().create_timer(0.8).timeout
 			await foto("anteprima")
 			g.scelta_fatta.emit(pos[0])
 			await get_tree().create_timer(2.0).timeout

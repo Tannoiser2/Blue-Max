@@ -251,11 +251,22 @@ func altezza(quota: int) -> float:
 # --------------------------------------------------------------------------- evidenziazioni
 func pulisci_evid() -> void:
 	evid_img.fill(Color(0, 0, 0, 0))
+	evid_base = null
 	evid_tex.update(evid_img)
+
+## Linea di tiro provvisoria sopra le evidenziazioni già presenti (si ridisegna a ogni manovra provata)
+var evid_base: Image = null
+func linea_tiro(celle: Array) -> void:
+	if evid_base == null:
+		evid_base = evid_img.duplicate()
+	else:
+		evid_img.copy_from(evid_base)
+	evidenzia(celle, Color(1, 0.3, 0.2, 0.55))
 
 func evidenzia(celle: Array, colore: Color, pulisci := false) -> void:
 	if pulisci:
 		evid_img.fill(Color(0, 0, 0, 0))
+		evid_base = null
 	for c in celle:
 		var x: int = int(c.x) - EV_Q0
 		var y: int = int(c.y) - EV_R0

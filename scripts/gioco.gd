@@ -715,6 +715,10 @@ func _scelta_umana(a: Dictionary, mia: Dictionary, info_testo := "") -> Dictiona
 			testo += " Atterraggio."
 		dettaglio.text = testo
 		mondo.anteprima(a, c, int(stato["quota"]))
+		# linea di tiro dalla posizione d'arrivo: i 3 esagoni dritti davanti al muso
+		var fine: Dictionary = R.percorso(a, c).back()
+		mondo.linea_tiro(Hex.linea(Vector2i(int(fine["q"]), int(fine["r"])), int(fine["prua"]), 3))
+		dettaglio.text += " In rosso la linea di tiro dopo la manovra (si spara solo dritto davanti, fino a 3 esagoni, a quota uguale o adiacente)."
 		conferma.disabled = m.is_empty()
 	for k in [1, 0, -1]:
 		var nome: String = {1: "Cabrata (sale)", 0: "Stessa quota", -1: "Picchiata (scende)"}[k]
