@@ -79,6 +79,8 @@ func _process(dt: float) -> void:
 	cam.look_at(Vector3.ZERO, Vector3.UP)
 
 func _gui_input(ev: InputEvent) -> void:
+	if (ev is InputEventMouseButton or ev is InputEventMouseMotion) and ev.device == InputEvent.DEVICE_ID_EMULATION:
+		return
 	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
 		trascina = ev.pressed
 		if ev.pressed:

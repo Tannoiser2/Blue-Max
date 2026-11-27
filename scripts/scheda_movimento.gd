@@ -93,6 +93,8 @@ func _layout() -> void:
 		y += righe * (h + GAP) + 4.0
 
 func _gui_input(ev: InputEvent) -> void:
+	if (ev is InputEventMouseButton or ev is InputEventMouseMotion) and ev.device == InputEvent.DEVICE_ID_EMULATION:
+		return
 	var p := Vector2(-1, -1)
 	if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
 		p = ev.position

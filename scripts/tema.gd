@@ -148,3 +148,24 @@ static func pannello_scuro(margine := 12) -> PanelContainer:
 	var p = PanelContainer.new()
 	p.add_theme_stylebox_override("panel", s)
 	return p
+
+
+## Su iPad e telefoni il browser non apre la tastiera per i campi di Godot: al tocco si chiede il testo con la finestra del browser
+static func tastiera(le: LineEdit, domanda: String) -> void:
+	le.add_theme_font_size_override("font_size", 26)
+	le.custom_minimum_size.y = 54
+	if not OS.has_feature("web"):
+		return
+	le.gui_input.connect(func(ev: InputEvent):
+		if not (ev is InputEventScreenTouch and not ev.pressed):
+			return
+		var js = "(function(){var r=window.prompt(%s,%s);return r===null?'__annulla__':r;})()" % [JSON.stringify(domanda), JSON.stringify(le.text)]
+		var r = JavaScriptBridge.eval(js, true)
+		if r == null or str(r) == "__annulla__":
+			return
+		var t = str(r)
+		if le.max_length > 0:
+			t = t.substr(0, le.max_length)
+		le.text = t
+		le.text_changed.emit(t)
+		le.release_focus())

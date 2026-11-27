@@ -820,6 +820,9 @@ func _sposta_schermo(d: Vector2) -> void:
 	_limita()
 
 func gestisci_input(ev: InputEvent) -> bool:
+	# il mouse finto generato dal tocco (iPad) serve ai bottoni, non alla telecamera: il tocco è già gestito qui
+	if (ev is InputEventMouseButton or ev is InputEventMouseMotion) and ev.device == InputEvent.DEVICE_ID_EMULATION:
+		return false
 	if ev is InputEventScreenTouch:
 		if ev.pressed:
 			tocchi[ev.index] = ev.position

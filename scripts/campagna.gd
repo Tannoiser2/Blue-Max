@@ -57,6 +57,7 @@ func inizio() -> void:
 	var le = LineEdit.new()
 	le.custom_minimum_size.x = 200
 	le.max_length = 6
+	Tema.tastiera(le, "Codice della campagna (6 lettere)")
 	h.add_child(le)
 	h.add_child(Tema.bottone("Carica", func(): _carica(le.text.strip_edges().to_upper()), 20))
 	v.add_child(HSeparator.new())
@@ -67,6 +68,7 @@ func inizio() -> void:
 	g.add_child(Tema.etichetta("Nome del pilota", 21, Tema.INCHIOSTRO, "grassetto"))
 	var nome = LineEdit.new()
 	nome.text = "Stefano"
+	Tema.tastiera(nome, "Nome del pilota")
 	nome.custom_minimum_size.x = 360
 	g.add_child(nome)
 	g.add_child(Tema.etichetta("Nazione", 21, Tema.INCHIOSTRO, "grassetto"))

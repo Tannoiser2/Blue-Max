@@ -767,11 +767,13 @@ func entra_online() -> void:
 	g.add_child(Tema.etichetta("Codice", 22, Tema.INCHIOSTRO, "grassetto"))
 	var cod := LineEdit.new()
 	cod.max_length = 4
+	Tema.tastiera(cod, "Codice della stanza (4 lettere)")
 	cod.custom_minimum_size.x = 200
 	g.add_child(cod)
 	g.add_child(Tema.etichetta("Il tuo nome", 22, Tema.INCHIOSTRO, "grassetto"))
 	var nome := LineEdit.new()
 	nome.max_length = 16
+	Tema.tastiera(nome, "Il tuo nome")
 	nome.text = principale.rete.carica("bluemax_nome")
 	nome.custom_minimum_size.x = 300
 	g.add_child(nome)
