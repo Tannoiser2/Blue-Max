@@ -34,11 +34,12 @@ tv.on('console', (m) => {
   if (m.type() === 'error' || /SCRIPT ERROR|ERROR:/.test(t)) errori.push(t);
 });
 tv.on('pageerror', (e) => errori.push(String(e)));
-await tv.goto('http://localhost:8765/index.html?rete=locale&prova=telefono');
+await tv.goto('http://localhost:8765/index.html?rete=locale&prova=telefono' + (process.env.DIETRO ? '&dietro=1' : ''));
 for (let i = 0; i < 120 && !codice; i++) await tv.waitForTimeout(1000);
 console.log('codice', codice);
 await tv.screenshot({ path: out + '/tv0.png' });
-const tel = await ctx.newPage({ viewport: { width: 400, height: 860 }, isMobile: true, hasTouch: true });
+const tel = await ctx.newPage();
+await tel.setViewportSize({ width: Number(process.env.TW || 390), height: Number(process.env.TH || 700) });
 tel.on('pageerror', (e) => errori.push('telefono: ' + e));
 await tel.goto(`http://localhost:8765/telefono.html?s=${codice}&rete=locale`);
 await tel.fill('#nome', 'Marco');
@@ -49,9 +50,15 @@ while (Date.now() - t0 < DURATA) {
   await tel.waitForTimeout(1500);
   const man = await tel.$$('.man:not(.no)');
   if (man.length && await tel.$('#invia')) {
-    await man[Math.floor(man.length / 2)].click();
+    const dritta = process.env.DIETRO ? ((await tel.$('.man[data-c="2A1"]:not(.no)')) || man[0]) : man[Math.floor(Math.random() * man.length)];
+    await dritta.click();
     await tel.waitForTimeout(200);
-    if (foto < 1) { await tel.screenshot({ path: out + '/telefono_manovra.png', fullPage: true }); foto++; }
+    if (foto < 1) {
+      await tel.screenshot({ path: out + '/telefono_manovra.png' }); foto++;
+      for (const t of ['aereo', 'mappa']) { await tel.click(`button[data-tab="${t}"]`); await tel.waitForTimeout(300); await tel.screenshot({ path: out + '/telefono_' + t + '.png' }); }
+      await tel.click('button[data-tab="azione"]'); await tel.waitForTimeout(200);
+      await (await tel.$$('.man:not(.no)'))[0].click(); await tel.waitForTimeout(200);
+    }
     const inv = await tel.$('#invia:not([disabled])');
     if (inv) { await inv.click(); mosse++; }
     continue;
@@ -59,7 +66,7 @@ while (Date.now() - t0 < DURATA) {
   const b = await tel.$('button[data-r="media"]');
   if (b) {
     await b.click();
-    await tel.screenshot({ path: out + '/telefono_fuoco.png', fullPage: true });
+    await tel.screenshot({ path: out + '/telefono_fuoco.png' });
     await tel.click('#spara');
     spari++;
     continue;

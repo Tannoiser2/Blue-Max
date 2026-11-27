@@ -23,7 +23,7 @@ func _ready() -> void:
 	ui.add_child(radice)
 	var p = rete.parametri()
 	if p.has("prova"):
-		_prova(p["prova"])
+		_prova(p["prova"], p)
 		return
 	mostra_menu()
 	if p.has("entra"):
@@ -82,13 +82,22 @@ func _unhandled_input(ev: InputEvent) -> void:
 		mondo.gestisci_input(ev)
 
 ## Partite di prova per le foto e i test automatici (?prova=...)
-func _prova(cosa: String) -> void:
+func _prova(cosa: String, par := {}) -> void:
 	if cosa != "telefono":
 		var R0 = Scenari.costruisci("meute", {"G": "ia", "A": "ia"}, {"seme": 5})
 		avvia_partita(R0, {"veloce": true})
 		return
 	var R = Scenari.schermaglia([{"tipo": "spad13", "nazione": "francia", "controllo": "telefono", "pilota": {"nome": "Lt. Prova"}},
 		{"tipo": "fokker_d7", "nazione": "germania", "controllo": "ia", "pilota": {"nome": "Leutnant Test"}}], {"seme": 11}, true)
+	if par.has("dietro"):
+		# lo Spad del telefono parte in coda al Fokker: serve a provare il fuoco dal telefono
+		for a in R.S["aerei"]:
+			a["prua"] = 5
+			a["quota"] = 2
+			if a["lato"] == "G":
+				a["q"] = 1; a["r"] = 7
+			else:
+				a["q"] = 0; a["r"] = 8
 	rete.avvia()
 	while true:
 		var e = await rete.evento

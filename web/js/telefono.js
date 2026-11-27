@@ -83,13 +83,18 @@ async function entra() {
   }
 }
 
+let tab = 'azione';       // scheda visibile: azione, aereo, mappa
+let ultimaRich = '';
+
 function aggiorna() {
   mio = (stato.aerei || []).find((a) => a.uid === uid && a.controllo === 'telefono') || null;
   const rich = mio ? (stato.richieste || {})[String(mio.id)] : null;
   const chiave = rich ? `${stato.turno}-${rich.tipo}` : '';
-  if (rich && chiave !== inviato && !document.getElementById('scelta')) {
+  if (rich && chiave !== inviato && chiave !== ultimaRich) {
+    ultimaRich = chiave;
     scelta = { codice: '', quota: 0 };
     fuoco = {};
+    tab = 'azione';
     suona('tocca');
     if (navigator.vibrate) navigator.vibrate(120);
   }
@@ -98,37 +103,59 @@ function aggiorna() {
 
 function barra(n, v, t) {
   const p = Math.max(0, Math.min(100, (100 * v) / Math.max(1, t)));
-  return `<div>${n} ${v}</div><div class="barra"><i style="width:${p}%"></i></div>`;
+  return `<div class="bn">${n} <b>${v}</b></div><div class="barra"><i style="width:${p}%"></i></div>`;
 }
 
+let ultimo = [null, ''];
 function disegna(rich, chiave) {
+  ultimo = [rich, chiave];
   if (!mio) {
     app.innerHTML = `<h1>Blue Max</h1><div class="carta"><h2>Ciao ${esc(nome)}</h2><p class="nota">Lo schermo grande non ti ha ancora affidato un aereo, oppure la partita non è cominciata.</p></div>`;
     return;
   }
-  let h = `<h1>Blue Max</h1>
-    <div class="carta"><h2>${esc(mio.pilota)} - ${esc(mio.nome)}</h2>
-    <div class="nota">Turno ${stato.turno} - quota ${QUOTE[mio.quota]} - carburante ${mio.carb} - ultima manovra ${esc(mio.ultima || '-')}</div>
-    <div class="barre">${barra('Ali', mio.ali, mio.tot?.ali)}${barra('Fusoliera', mio.fus, mio.tot?.fus)}${barra('Coda', mio.coda, mio.tot?.coda)}${barra('Motore', mio.motore, mio.tot?.motore)}</div>
-    ${mio.fuoco ? '<div class="avviso">Sei in fiamme!</div>' : ''}${mio.fumo ? '<div class="avviso">Perdi fumo.</div>' : ''}
-    ${mio.stato !== 'volo' ? `<div class="avviso">Stato: ${esc(mio.stato)}</div>` : ''}
-    </div>
-    <canvas id="mappa" width="600" height="420"></canvas>`;
-  if (rich && chiave === inviato) {
-    h += '<div class="carta"><h2>Fatto!</h2><p class="nota">Aspetta gli altri piloti.</p></div>';
-  } else if (rich && rich.tipo === 'manovra') {
-    h += pannelloManovra(rich);
-  } else if (rich && rich.tipo === 'fuoco') {
-    h += pannelloFuoco(rich);
-  } else {
-    h += `<div class="carta"><p class="nota">${stato.finita ? 'Il combattimento è finito.' : 'Guarda lo schermo grande: tocca agli altri.'}</p></div>`;
+  const daFare = rich && chiave !== inviato;
+  const nomeAz = rich && rich.tipo === 'fuoco' ? 'Fuoco' : 'Manovra';
+  let corpo = '';
+  if (tab === 'aereo') corpo = pannelloAereo();
+  else if (tab === 'mappa') corpo = '<canvas id="mappa"></canvas>';
+  else if (rich && chiave === inviato) corpo = '<div class="attesa"><h2>Fatto!</h2><p class="nota">Aspetta gli altri piloti.</p></div>';
+  else if (rich && rich.tipo === 'manovra') corpo = pannelloManovra(rich);
+  else if (rich && rich.tipo === 'fuoco') corpo = pannelloFuoco(rich);
+  else corpo = `<div class="attesa"><p class="nota">${stato.finita ? 'Il combattimento è finito.' : 'Guarda lo schermo grande: tocca agli altri.'}</p></div>`;
+  app.innerHTML = `
+    <div class="testa"><span class="pil">${esc(mio.pilota)}</span><span class="dati">${esc(mio.nome)} - turno ${stato.turno} - quota ${QUOTE[mio.quota]}${mio.fuoco ? ' - <b class="rosso">IN FIAMME</b>' : ''}</span></div>
+    <div class="corpo" id="corpo">${corpo}</div>
+    <div class="schede">
+      <button data-tab="azione" class="${tab === 'azione' ? 'sel' : ''}">${nomeAz}${daFare ? ' <span class="pallino">!</span>' : ''}</button>
+      <button data-tab="aereo" class="${tab === 'aereo' ? 'sel' : ''}">Aereo</button>
+      <button data-tab="mappa" class="${tab === 'mappa' ? 'sel' : ''}">Mappa</button>
+    </div>`;
+  document.querySelectorAll('button[data-tab]').forEach((b) => { b.onclick = () => { tab = b.dataset.tab; disegna(rich, chiave); }; });
+  if (tab === 'mappa') {
+    const cv = document.getElementById('mappa');
+    const r = document.getElementById('corpo').getBoundingClientRect();
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.style.width = r.width + 'px';
+    cv.style.height = r.height + 'px';
+    cv.width = Math.round(r.width * dpr);
+    cv.height = Math.round(r.height * dpr);
+    disegnaMappa();
   }
-  h += `<div class="carta diario">${(stato.diario || []).map(esc).join('<br>')}</div>`;
-  app.innerHTML = h;
-  disegnaMappa();
+  impagina();
   collega(rich, chiave);
 }
 
+function pannelloAereo() {
+  const d = (stato.diario || []).slice(-14);
+  return `<div class="aereo">
+    <div class="nota">Carburante ${mio.carb} - ultima manovra ${esc(mio.ultima || '-')}</div>
+    <div class="barre">${barra('Ali', mio.ali, mio.tot?.ali)}${barra('Fusoliera', mio.fus, mio.tot?.fus)}${barra('Coda', mio.coda, mio.tot?.coda)}${barra('Motore', mio.motore, mio.tot?.motore)}</div>
+    ${mio.fuoco ? '<div class="avviso">Sei in fiamme!</div>' : ''}${mio.fumo ? '<div class="avviso">Perdi fumo.</div>' : ''}
+    ${mio.stato !== 'volo' ? `<div class="avviso">Stato: ${esc(mio.stato)}</div>` : ''}
+    <div class="diario">${d.map(esc).join('<br>')}</div></div>`;
+}
+
+const GRUPPI = ['Avvitamento', 'Rotazioni e stallo', 'Velocità 1', 'Velocità 2', 'Velocità 3', 'Velocità 4', 'Acrobatiche'];
 function pannelloManovra(rich) {
   const ops = rich.opzioni || [];
   const codici = [...new Set(ops.map((o) => o.codice))];
@@ -138,29 +165,61 @@ function pannelloManovra(rich) {
     const g = c === '0A2' ? 'Avvitamento' : k.n >= 27 ? 'Acrobatiche' : k.n <= 1 ? 'Rotazioni e stallo' : 'Velocità ' + k.vel;
     (gruppi[g] = gruppi[g] || []).push(c);
   }
-  let h = '<div class="carta" id="scelta"><h2>Scegli la manovra</h2>';
-  if (rich.info) h += `<div class="avviso">${esc(rich.info)}</div>`;
-  for (const g of ['Avvitamento', 'Rotazioni e stallo', 'Velocità 1', 'Velocità 2', 'Velocità 3', 'Velocità 4', 'Acrobatiche']) {
-    if (!gruppi[g]) continue;
-    h += `<div class="gruppo">${g}</div><div class="manovre">`;
-    for (const c of gruppi[g]) {
+  let h = '<div class="pman" id="scelta">';
+  if (rich.info) h += `<div class="avviso piccolo">${esc(rich.info)}</div>`;
+  h += '<div class="legenda">' + GRUPPI.filter((g) => gruppi[g]).map((g) => `<span class="g${GRUPPI.indexOf(g)}">${g.replace('Velocità ', 'Vel. ').replace('Rotazioni e stallo', 'Rotazioni')}</span>`).join('') + '</div>';
+  h += '<div class="manovre" id="griglia">';
+  for (const g of GRUPPI) {
+    for (const c of gruppi[g] || []) {
       const ok = codici.includes(c);
       const k = parse(c);
-      h += `<div class="man ${ok ? '' : 'no'} ${scelta.codice === c ? 'sel' : ''}" data-c="${c}"><canvas width="132" height="144" data-g="${c}"></canvas>${NONRIP.includes(k.n) ? '(' + c + ')' : c}</div>`;
+      h += `<div class="man g${GRUPPI.indexOf(g)} ${ok ? '' : 'no'} ${scelta.codice === c ? 'sel' : ''}" data-c="${c}"><canvas data-g="${c}"></canvas><span>${NONRIP.includes(k.n) ? '(' + c + ')' : c}</span></div>`;
     }
-    h += '</div>';
   }
+  h += '</div>';
   const quote = new Set(ops.filter((o) => o.codice === scelta.codice).map((o) => +o.quota));
-  h += '<div class="riga" style="margin-top:10px">';
-  for (const [d, t] of [[1, 'Cabrata'], [0, 'Stessa quota'], [-1, 'Picchiata']]) {
+  h += '<div class="comandi">';
+  for (const [d, t] of [[1, 'Cabra'], [0, 'Stessa'], [-1, 'Picchia']]) {
     h += `<button data-q="${d}" ${quote.has(d) ? '' : 'disabled'} class="${scelta.quota === d && quote.has(d) ? 'sel' : ''}">${t}</button>`;
   }
-  h += `</div><button id="invia" class="largo" ${scelta.codice && quote.has(scelta.quota) ? '' : 'disabled'}>CONFERMA ${esc(scelta.codice)}</button></div>`;
+  h += `<button id="invia" class="ok" ${scelta.codice && quote.has(scelta.quota) ? '' : 'disabled'}>OK ${esc(scelta.codice)}</button></div></div>`;
   return h;
 }
 
+// la griglia delle manovre riempie la scheda senza scorrere: si sceglie il numero di colonne con le celle più grandi
+function impagina() {
+  const gr = document.getElementById('griglia');
+  if (!gr) return;
+  const celle = gr.children;
+  const n = celle.length;
+  const W = gr.clientWidth, H = gr.clientHeight, gap = 4;
+  let best = [4, 0, 0, 0];
+  for (let c = 3; c <= 10; c++) {
+    const r = Math.ceil(n / c);
+    const cw = (W - gap * (c - 1)) / c, ch = (H - gap * (r - 1)) / r;
+    const lato = Math.min(cw, ch / 1.15);
+    if (lato > best[1]) best = [c, lato, cw, ch];
+  }
+  const [c, , , ch] = best;
+  gr.style.gridTemplateColumns = `repeat(${c}, 1fr)`;
+  gr.style.gridAutoRows = `${Math.floor(ch)}px`;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const fs = Math.max(11, Math.min(17, Math.floor(ch * 0.16)));
+  for (const el of celle) {
+    el.querySelector('span').style.fontSize = fs + 'px';
+    const cv = el.querySelector('canvas');
+    const w = el.clientWidth - 4, h = Math.floor(ch) - fs - 8;
+    cv.style.width = w + 'px';
+    cv.style.height = Math.max(10, h) + 'px';
+    cv.width = Math.round(w * dpr);
+    cv.height = Math.round(Math.max(10, h) * dpr);
+    disegnaManovra(cv);
+  }
+}
+window.addEventListener('resize', () => { if (stato && mio) disegna(...ultimo); });
+
 function pannelloFuoco(rich) {
-  let h = '<div class="carta" id="scelta"><h2>Fuoco!</h2><p class="nota">Scegli bersaglio e raffica. Il numero è il valore di fuoco.</p>';
+  let h = '<div class="pfuoco" id="scelta"><h2>Fuoco!</h2><p class="nota">Scegli bersaglio e raffica. Il numero è il valore di fuoco.</p>';
   for (const o of rich.opzioni || []) {
     h += `<div class="gruppo">${esc(o.nome)} (${esc(o.tipo)}) - ${o.arma === 'pilota' ? 'mitragliatrici' : 'osservatore'}, distanza ${o.distanza}</div><div class="riga">`;
     for (const r of ['corta', 'media', 'lunga']) {
@@ -170,12 +229,11 @@ function pannelloFuoco(rich) {
     }
     h += '</div>';
   }
-  h += '<div class="riga" style="margin-top:10px"><button id="nonspara">Non sparare</button><button id="spara">FUOCO!</button></div></div>';
+  h += '<div class="riga" style="margin-top:auto;padding-top:10px"><button id="nonspara">Non sparare</button><button id="spara">FUOCO!</button></div></div>';
   return h;
 }
 
 function collega(rich, chiave) {
-  document.querySelectorAll('canvas[data-g]').forEach(disegnaManovra);
   document.querySelectorAll('.man').forEach((el) => {
     el.onclick = () => {
       if (el.classList.contains('no')) return;
@@ -212,28 +270,33 @@ function invia(k, v, chiave, rich) {
 function disegnaManovra(cv) {
   const g = geo(cv.dataset.g);
   const x = cv.getContext('2d');
-  const L = 16;
   const D = { 0: [0, -S3], 1: [1.5, -S3 / 2], 2: [1.5, S3 / 2], 3: [0, S3], '-2': [-1.5, S3 / 2], '-1': [-1.5, -S3 / 2] };
   let p = [0, 0];
   const pts = [p];
-  for (const s of g.passi) { const d = D[s === -3 ? 3 : s]; p = [p[0] + d[0] * L, p[1] + d[1] * L]; pts.push(p); }
-  const tutti = pts.length === 1 ? [[-L, 0], [L, 0]] : pts;
+  for (const s of g.passi) { const d = D[s === -3 ? 3 : s]; p = [p[0] + d[0], p[1] + d[1]]; pts.push(p); }
+  const tutti = pts.length === 1 ? [[-1, 0], [1, 0]] : pts;
   const xs = tutti.map((a) => a[0]), ys = tutti.map((a) => a[1]);
-  const ox = cv.width / 2 - (Math.min(...xs) + Math.max(...xs)) / 2, oy = cv.height / 2 - (Math.min(...ys) + Math.max(...ys)) / 2;
+  const bw = Math.max(...xs) - Math.min(...xs) + 2.1, bh = Math.max(...ys) - Math.min(...ys) + S3 + 0.1;
+  // scala comune per tutte (la più lunga deve entrare), un po' più grande per le corte
+  const base = Math.min(cv.width / 5.2, cv.height / (5 * S3 + 0.2));
+  const L = Math.min(cv.width / bw, cv.height / bh, base * 1.35);
+  const ox = cv.width / 2 - ((Math.min(...xs) + Math.max(...xs)) / 2) * L, oy = cv.height / 2 - ((Math.min(...ys) + Math.max(...ys)) / 2) * L;
+  x.clearRect(0, 0, cv.width, cv.height);
   x.strokeStyle = '#2a2118';
-  x.lineWidth = 2;
+  x.lineWidth = Math.max(1, L / 9);
   for (const c of tutti) {
     x.beginPath();
-    for (let k = 0; k <= 6; k++) { const a = (Math.PI / 3) * k; x.lineTo(c[0] + ox + Math.cos(a) * L, c[1] + oy + Math.sin(a) * L); }
+    for (let k = 0; k <= 6; k++) { const a = (Math.PI / 3) * k; x.lineTo(c[0] * L + ox + Math.cos(a) * L, c[1] * L + oy + Math.sin(a) * L); }
     x.stroke();
   }
   const c0 = pts.length === 1 ? tutti[1] : tutti[0];
-  x.beginPath(); x.moveTo(c0[0] + ox - 6, c0[1] + oy + 4); x.lineTo(c0[0] + ox, c0[1] + oy - 5); x.lineTo(c0[0] + ox + 6, c0[1] + oy + 4); x.stroke();
+  const u = L / 2.7;
+  x.beginPath(); x.moveTo(c0[0] * L + ox - u, c0[1] * L + oy + u * 0.7); x.lineTo(c0[0] * L + ox, c0[1] * L + oy - u * 0.8); x.lineTo(c0[0] * L + ox + u, c0[1] * L + oy + u * 0.7); x.stroke();
   const cf = pts.length === 1 ? tutti[0] : tutti[tutti.length - 1];
   const a = (g.prua * Math.PI) / 3;
   const su = [Math.sin(a), -Math.cos(a)], dx = [Math.cos(a), Math.sin(a)], k = L * 0.75;
-  const P = (u, v) => [cf[0] + ox + su[0] * u + dx[0] * v, cf[1] + oy + su[1] * u + dx[1] * v];
-  x.lineWidth = 4;
+  const P = (uu, v) => [cf[0] * L + ox + su[0] * uu + dx[0] * v, cf[1] * L + oy + su[1] * uu + dx[1] * v];
+  x.lineWidth = Math.max(2, L / 4);
   const linea = (a1, a2) => { x.beginPath(); x.moveTo(...a1); x.lineTo(...a2); x.stroke(); };
   linea(P(k * 0.55, -k), P(k * 0.55, k));
   linea(P(k * 0.9, 0), P(-k * 0.8, 0));
@@ -277,7 +340,7 @@ function disegnaMappa() {
     x.beginPath(); x.moveTo(k * 0.55, 0); x.lineTo(-k * 0.4, -k * 0.35); x.lineTo(-k * 0.25, 0); x.lineTo(-k * 0.4, k * 0.35); x.closePath();
     x.fill(); x.stroke();
     x.restore();
-    x.font = '600 16px Oswald';
+    x.font = `600 ${Math.round(Math.max(14, cv.width / 34))}px Oswald`;
     x.fillStyle = '#fff';
     x.strokeStyle = '#000';
     x.lineWidth = 4;

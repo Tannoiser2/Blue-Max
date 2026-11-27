@@ -351,6 +351,7 @@ func _aggiorna_fasi(f: int) -> void:
 			s.bg_color = Color("2f281f")
 			c.add_theme_color_override("font_color", Color("a8987a"))
 		c.add_theme_stylebox_override("normal", s)
+	_fase_base = ""
 	lbl_fase.text = Regole.FASI[f]
 	lbl_turno.text = "Turno %d" % int(R.S["turno"]) if R else "Turno 1"
 	if ospite:
@@ -595,10 +596,11 @@ func _fase_scelta() -> void:
 			if not a.get("tallonato_da", []).is_empty():
 				info[str(id)] = {"dir": Dati.codice(m["codice"])["dir"], "quota": int(m["quota"])}
 		if not progresso:
-			_pulisci_azione("In attesa dei telefoni")
-			corpo_azione.add_child(Tema.etichetta("Aspetto la manovra di: " + ", ".join(in_attesa.map(func(i): return R.aereo(i)["pilota"])), 20, Color("f3ead6"), "testo", 470))
+			_attesa_telefoni("la manovra di " + ", ".join(in_attesa.map(func(i): return R.aereo(i)["pilota"])))
 			await get_tree().create_timer(0.3).timeout
 	richieste_tel.clear()
+	dal_telefono.clear()
+	_fine_attesa()
 	R.applica_scelte(scelte)
 	_pubblica()
 
@@ -628,7 +630,24 @@ func _schermo_passa(a: Dictionary) -> void:
 	velo.visible = false
 	velo.color = Color(0, 0, 0, 0.55)
 
+## Mentre si aspettano i giocatori da fuori basta una scritta nella barra in alto, niente pannello
+var _fase_base = ""
+func _attesa_telefoni(cosa: String) -> void:
+	if destra.visible:
+		_pulisci_azione("")
+	if _fase_base == "":
+		_fase_base = lbl_fase.text
+	lbl_fase.text = "%s  -  aspetto %s" % [_fase_base, cosa]
+
+func _fine_attesa() -> void:
+	if _fase_base != "":
+		lbl_fase.text = _fase_base
+		_fase_base = ""
+
 func _pulisci_azione(t: String) -> void:
+	if _fase_base != "":
+		lbl_fase.text = _fase_base
+		_fase_base = ""
 	titolo_azione.text = t
 	destra.visible = t != "" and not in_replay
 	for c in corpo_azione.get_children():
@@ -746,6 +765,8 @@ func _vincoli(a: Dictionary) -> String:
 # --------------------------------------------------------------------------- fase 5: combattimento
 func _fase_fuoco() -> void:
 	var attacchi = []
+	richieste_tel.clear()
+	dal_telefono.clear()
 	for a in R.attivi():
 		var bersagli = []
 		for b in R.nemici(a):
@@ -766,11 +787,12 @@ func _fase_fuoco() -> void:
 			var mancano = richieste_tel.keys().filter(func(id): return not dal_telefono.has(id))
 			if mancano.is_empty():
 				break
-			_pulisci_azione("In attesa dei telefoni")
-			corpo_azione.add_child(Tema.etichetta("Aspetto gli spari di: " + ", ".join(mancano.map(func(i): return R.aereo(i)["pilota"])), 20, Color("f3ead6"), "testo", 470))
+			_attesa_telefoni("gli spari di " + ", ".join(mancano.map(func(i): return R.aereo(i)["pilota"])))
 			await get_tree().create_timer(0.4).timeout
+		_fine_attesa()
 		for id in richieste_tel:
-			attacchi += dal_telefono[id]
+			if dal_telefono[id] is Array:
+				attacchi += dal_telefono[id]
 		richieste_tel.clear()
 		dal_telefono.clear()
 	if attacchi.is_empty():
