@@ -909,6 +909,7 @@ func fase_recupero() -> Array:
 				if d >= (3 if ha(a, "inceppamenti") else 4):
 					m["inceppata"] = false
 					eventi.append({"id": a["id"], "testo": "mitragliatrice disinceppata"})
+
 			if m.get("ricarica", false):
 				m["ricarica"] = false
 				m["caricatori"].pop_front()

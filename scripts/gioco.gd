@@ -664,6 +664,8 @@ func _scelta_umana(a: Dictionary, mia: Dictionary, info_testo := "") -> Dictiona
 	var testo_info = _testo_info(mia) if info_testo == "" else info_testo
 	if testo_info != "":
 		corpo_azione.add_child(_nota(testo_info, Tema.ORO))
+	if a["mitra"].any(func(x): return x["inceppata"] and not x["distrutta"]):
+		corpo_azione.add_child(_nota("Mitragliatrice inceppata: per disincepparla scegli una manovra Avanti (codice con la A) non acrobatica. Nella fase di recupero si tira un dado: con 4, 5 o 6 torna a sparare.", Color("f0a090")))
 	var tallonatori: Array = a.get("tallonato_da", [])
 	if not tallonatori.is_empty():
 		var nomi = tallonatori.map(func(i): return R.aereo(i)["pilota"])
