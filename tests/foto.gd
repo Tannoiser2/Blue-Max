@@ -120,6 +120,8 @@ func _ready() -> void:
 					mo.effetti.add_child(g)
 					g.global_transform = mo.nodi[i]["radice"].global_transform
 			await get_tree().create_timer(1.0).timeout
+			for a in R.S["aerei"]:
+				print("ASSETTO ", a["pilota"], " ", mo.nodi[a["id"]]["asse"].rotation_degrees)
 			await foto("traiettorie")
 		"prue":
 			var lista = []

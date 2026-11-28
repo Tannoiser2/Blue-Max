@@ -481,7 +481,8 @@ func aggiorna(a: Dictionary) -> void:
 	var h = altezza(a["quota"])
 	rad.position = base + Vector3(0, h, 0)
 	rad.rotation = Vector3(0, yaw_da_prua(a["prua"]), 0)
-	n["asse"].rotation = Vector3.ZERO
+	# l'aereo resta inclinato come ha finito l'ultima manovra
+	n["asse"].rotation = Vector3(float(n.get("becc", 0.0)), 0, float(n.get("rollio", 0.0)))
 	if a["stato"] == "vite":
 		n["asse"].rotation_degrees = Vector3(35, 0, 25)
 	n["colonna"].visible = vivo
@@ -596,6 +597,18 @@ func anima_manovra(a: Dictionary, ev: Dictionary, durata := 1.8, lineare := fals
 			return dy * e
 		var off = lerpf(0.0, tangente.call(e), smoothstep(0.0, 0.3, e))
 		return lerpf(off, dy, smoothstep(0.55, 1.0, e))
+	# assetto di partenza (quello lasciato dalla manovra precedente) e assetto d'arrivo
+	var r0 := float(n.get("rollio", 0.0))
+	var b0 := float(n.get("becc", 0.0))
+	var acro: bool = num >= 27 or in_vite
+	var r1 := 0.0
+	if not acro:
+		r1 = -clampf(dy * 0.5, -0.75, 0.75)
+		if lato != 0.0:
+			r1 = lato * 0.25
+	var b1 := 0.0 if acro else -atan((h1 - h0) * 1.2) * 0.35
+	n["rollio"] = r1
+	n["becc"] = b1
 	var tw = create_tween()
 	var fun = func(t: float):
 		var e = t if lineare else t * t * (3.0 - 2.0 * t)
@@ -628,6 +641,11 @@ func anima_manovra(a: Dictionary, ev: Dictionary, durata := 1.8, lineare := fals
 			rollio = 0.5
 		var dq = h1 - h0
 		becc += -atan(dq * 1.2) * sin(PI * e)
+		var sm := smoothstep(0.0, 1.0, e)
+		rollio += lerpf(r0, r1, sm)
+		becc += lerpf(b0, b1, sm)
+		if not acro:
+			rollio = clampf(rollio, -1.3, 1.3)
 		if not is_instance_valid(rad):
 			return
 		rad.position = pos + Vector3(0, h, 0)
