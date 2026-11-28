@@ -63,32 +63,78 @@ func _notification(w: int) -> void:
 		_layout()
 		queue_redraw()
 
-## Trova la misura del riquadro più grande che fa entrare tutto nello spazio disponibile
+## Tre colonne fisse: S a sinistra, A al centro, D a destra; righe per gruppo di velocità.
+## Si cerca il riquadro più grande che fa entrare tutto, dividendo le colonne tra S, A e D.
+const SEP := 10.0
+const TESTA := 22.0
+var zone := []   # [x0, x1] per S, A, D
+
+func _per_dir(lista: Array, d: String) -> Array:
+	return lista.filter(func(c): return Dati.codice(c)["dir"] == d)
+
 func _layout() -> void:
 	celle.clear()
+	zone.clear()
 	if gruppi.is_empty() or size.x < 50:
 		return
-	var larg := size.x - COL_ETICHETTA
-	var migliore := 40.0
-	for prova in range(140, 39, -2):
+	var larg := size.x - COL_ETICHETTA - 2 * SEP
+	var alto := size.y - TESTA
+	var mass := [0, 0, 0]
+	for gr in gruppi:
+		for k in 3:
+			mass[k] = maxi(mass[k], _per_dir(gr[1], "SAD"[k]).size())
+	var migliore := [40.0, [1, 1, 1]]
+	for prova in range(140, 29, -2):
 		var w := float(prova)
 		var h := w * 1.12
-		var per_riga := maxi(1, int((larg + GAP) / (w + GAP)))
-		var righe := 0
-		for gr in gruppi:
-			righe += int(ceil(float(gr[1].size()) / per_riga))
-		if righe * (h + GAP) + (gruppi.size() - 1) * 4.0 <= size.y:
-			migliore = w
+		var tot := int((larg + 3 * GAP) / (w + GAP))
+		if tot < 3:
+			continue
+		var buono = null
+		var min_righe := 9999
+		for cs in range(1, mini(tot - 1, maxi(1, mass[0])) + 1):
+			for ca in range(1, mini(tot - cs, maxi(1, mass[1])) + 1):
+				var cd := mini(tot - cs - ca, maxi(1, mass[2]))
+				if cd < 1:
+					continue
+				var righe := 0
+				for gr in gruppi:
+					var n = [_per_dir(gr[1], "S").size(), _per_dir(gr[1], "A").size(), _per_dir(gr[1], "D").size()]
+					righe += maxi(1, maxi(int(ceil(n[0] / float(cs))), maxi(int(ceil(n[1] / float(ca))), int(ceil(n[2] / float(cd))))))
+				if righe < min_righe:
+					min_righe = righe
+					buono = [cs, ca, cd]
+		if buono != null and min_righe * (h + GAP) + (gruppi.size() - 1) * 4.0 <= alto:
+			migliore = [w, buono]
 			break
-	var w := migliore
+	var w: float = migliore[0]
 	var h := w * 1.12
-	var per_riga := maxi(1, int((larg + GAP) / (w + GAP)))
-	var y := 0.0
+	var col: Array = migliore[1]
+	var usato: float = (col[0] + col[1] + col[2]) * (w + GAP) - 3 * GAP
+	var x := COL_ETICHETTA + maxf(0.0, (larg - usato) / 2.0)
+	for k in 3:
+		var x1 = x + col[k] * (w + GAP) - GAP
+		zone.append([x, x1])
+		x = x1 + GAP + SEP
+	var y := TESTA
 	for gr in gruppi:
-		var lista: Array = gr[1]
-		var righe := int(ceil(float(lista.size()) / per_riga))
-		for i in lista.size():
-			celle[lista[i]] = Rect2(COL_ETICHETTA + (i % per_riga) * (w + GAP), y + (i / per_riga) * (h + GAP), w, h)
+		var righe := 1
+		for k in 3:
+			var lista := _per_dir(gr[1], "SAD"[k])
+			righe = maxi(righe, int(ceil(lista.size() / float(col[k]))))
+			# S allineate verso il centro (a destra della loro zona), D verso il centro (a sinistra)
+			for i in lista.size():
+				var cx: float
+				var ic: int = i % int(col[k])
+				if k == 0:
+					cx = zone[0][1] - w - ic * (w + GAP)
+				elif k == 1:
+					var nriga := mini(lista.size() - (i / int(col[k])) * int(col[k]), int(col[k]))
+					var largo_riga := nriga * (w + GAP) - GAP
+					cx = (zone[1][0] + zone[1][1]) / 2 - largo_riga / 2 + ic * (w + GAP)
+				else:
+					cx = zone[2][0] + ic * (w + GAP)
+				celle[lista[i]] = Rect2(cx, y + (i / int(col[k])) * (h + GAP), w, h)
 		gr[2] = Rect2(0, y, COL_ETICHETTA - 4, righe * (h + GAP) - GAP)
 		y += righe * (h + GAP) + 4.0
 
@@ -130,6 +176,17 @@ func _process(dt: float) -> void:
 
 func _draw() -> void:
 	var f := Tema.font("grassetto")
+	var nomi := ["Sinistra (S)", "Avanti (A)", "Destra (D)"]
+	var fondi := [Color(0.42, 0.33, 0.22, 0.10), Color(0.42, 0.33, 0.22, 0.0), Color(0.42, 0.33, 0.22, 0.10)]
+	for k in zone.size():
+		var z: Array = zone[k]
+		draw_rect(Rect2(z[0] - 3, 0, z[1] - z[0] + 6, size.y), fondi[k])
+		var fs := 15
+		var tw := f.get_string_size(nomi[k], HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		draw_string(f, Vector2((z[0] + z[1]) / 2 - tw / 2, 16), nomi[k], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Tema.ROSSO)
+		if k > 0:
+			var xs = z[0] - SEP / 2 - GAP / 2
+			draw_line(Vector2(xs, 0), Vector2(xs, size.y), Color("8c7350"), 2.0)
 	for gr in gruppi:
 		var r: Rect2 = gr[2]
 		if r.size.y <= 0:

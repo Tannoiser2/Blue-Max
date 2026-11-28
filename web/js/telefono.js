@@ -173,7 +173,7 @@ function pannelloManovra(rich) {
     for (const c of gruppi[g] || []) {
       const ok = codici.includes(c);
       const k = parse(c);
-      h += `<div class="man g${GRUPPI.indexOf(g)} ${ok ? '' : 'no'} ${scelta.codice === c ? 'sel' : ''}" data-c="${c}"><canvas data-g="${c}"></canvas><span>${NONRIP.includes(k.n) ? '(' + c + ')' : c}</span></div>`;
+      h += `<div class="man g${GRUPPI.indexOf(g)} ${ok ? '' : 'no'} ${scelta.codice === c ? 'sel' : ''}" data-c="${c}" data-gr="${GRUPPI.indexOf(g)}" data-d="${k.dir}"><canvas data-g="${c}"></canvas><span>${NONRIP.includes(k.n) ? '(' + c + ')' : c}</span></div>`;
     }
   }
   h += '</div>';
@@ -187,33 +187,72 @@ function pannelloManovra(rich) {
 }
 
 // la griglia delle manovre riempie la scheda senza scorrere: si sceglie il numero di colonne con le celle più grandi
+// tre colonne fisse, S a sinistra, A al centro, D a destra, una fascia per gruppo di velocità;
+// si cerca la cella più grande che fa stare tutto nella scheda senza scorrere
 function impagina() {
   const gr = document.getElementById('griglia');
   if (!gr) return;
-  const celle = gr.children;
-  const n = celle.length;
-  const W = gr.clientWidth, H = gr.clientHeight, gap = 4;
-  let best = [4, 0, 0, 0];
-  for (let c = 3; c <= 10; c++) {
-    const r = Math.ceil(n / c);
-    const cw = (W - gap * (c - 1)) / c, ch = (H - gap * (r - 1)) / r;
-    const lato = Math.min(cw, ch / 1.15);
-    if (lato > best[1]) best = [c, lato, cw, ch];
+  const celle = [...gr.querySelectorAll('.man')];
+  gr.querySelectorAll('.zona').forEach((z) => z.remove());
+  const W = gr.clientWidth, TESTA = 18, H = gr.clientHeight - TESTA, gap = 3, sep = 8;
+  const gruppi = [...new Set(celle.map((c) => +c.dataset.gr))];
+  const conta = {};
+  for (const c of celle) { const k = c.dataset.gr + c.dataset.d; conta[k] = (conta[k] || 0) + 1; }
+  const n = (g, d) => conta[g + d] || 0;
+  const mass = ['S', 'A', 'D'].map((d) => Math.max(1, ...gruppi.map((g) => n(g, d))));
+  let best = null;
+  for (let w = 120; w >= 26; w -= 2) {
+    const h = Math.round(w * 1.15);
+    const tot = Math.floor((W - 2 * sep + 3 * gap) / (w + gap));
+    if (tot < 3) continue;
+    let migl = null;
+    for (let cs = 1; cs <= Math.min(tot - 2, mass[0]); cs++) {
+      for (let ca = 1; ca <= Math.min(tot - cs - 1, mass[1]); ca++) {
+        const cd = Math.min(tot - cs - ca, mass[2]);
+        if (cd < 1) continue;
+        const righe = gruppi.reduce((t, g) => t + Math.max(1, Math.ceil(n(g, 'S') / cs), Math.ceil(n(g, 'A') / ca), Math.ceil(n(g, 'D') / cd)), 0);
+        if (!migl || righe < migl[0]) migl = [righe, [cs, ca, cd]];
+      }
+    }
+    if (migl && migl[0] * (h + gap) + (gruppi.length - 1) * 4 <= H) { best = [w, h, migl[1]]; break; }
   }
-  const [c, , , ch] = best;
-  gr.style.gridTemplateColumns = `repeat(${c}, 1fr)`;
-  gr.style.gridAutoRows = `${Math.floor(ch)}px`;
+  if (!best) best = [26, 30, [1, 1, 1]];
+  const [w, h, col] = best;
+  const usato = (col[0] + col[1] + col[2]) * (w + gap) - 3 * gap + 2 * sep;
+  let x = Math.max(0, (W - usato) / 2);
+  const zone = [];
+  for (let k = 0; k < 3; k++) { const x1 = x + col[k] * (w + gap) - gap; zone.push([x, x1]); x = x1 + gap + sep; }
+  ['Sinistra (S)', 'Avanti (A)', 'Destra (D)'].forEach((t, k) => {
+    const z = document.createElement('div');
+    z.className = 'zona' + (k === 1 ? '' : ' laterale');
+    z.style.left = (zone[k][0] - 2) + 'px'; z.style.width = (zone[k][1] - zone[k][0] + 4) + 'px';
+    z.textContent = t;
+    gr.prepend(z);
+  });
   const dpr = Math.min(2, window.devicePixelRatio || 1);
-  const fs = Math.max(11, Math.min(17, Math.floor(ch * 0.16)));
-  for (const el of celle) {
-    el.querySelector('span').style.fontSize = fs + 'px';
-    const cv = el.querySelector('canvas');
-    const w = el.clientWidth - 4, h = Math.floor(ch) - fs - 8;
-    cv.style.width = w + 'px';
-    cv.style.height = Math.max(10, h) + 'px';
-    cv.width = Math.round(w * dpr);
-    cv.height = Math.round(Math.max(10, h) * dpr);
-    disegnaManovra(cv);
+  const fs = Math.max(10, Math.min(16, Math.floor(h * 0.16)));
+  let y = TESTA;
+  for (const g of gruppi) {
+    let righe = 1;
+    ['S', 'A', 'D'].forEach((d, k) => {
+      const lista = celle.filter((c) => +c.dataset.gr === g && c.dataset.d === d);
+      righe = Math.max(righe, Math.ceil(lista.length / col[k]));
+      lista.forEach((el, i) => {
+        const ic = i % col[k], ir = Math.floor(i / col[k]);
+        let cx;
+        if (k === 0) cx = zone[0][1] - w - ic * (w + gap);
+        else if (k === 2) cx = zone[2][0] + ic * (w + gap);
+        else { const nr = Math.min(lista.length - ir * col[k], col[k]); cx = (zone[1][0] + zone[1][1]) / 2 - (nr * (w + gap) - gap) / 2 + ic * (w + gap); }
+        Object.assign(el.style, { left: cx + 'px', top: (y + ir * (h + gap)) + 'px', width: w + 'px', height: h + 'px' });
+        el.querySelector('span').style.fontSize = fs + 'px';
+        const cv = el.querySelector('canvas');
+        const cw = w - 4, ch = Math.max(10, h - fs - 8);
+        cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
+        cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
+        disegnaManovra(cv);
+      });
+    });
+    y += righe * (h + gap) + 4;
   }
 }
 window.addEventListener('resize', () => { if (stato && mio) disegna(...ultimo); });
